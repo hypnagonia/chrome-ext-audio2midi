@@ -74,6 +74,7 @@
   "transport.original": "original",
   "transport.midi": "midi",
   "transport.position": "Position de lecture",
+  "transport.speed": "Vitesse de lecture",
 
   "insts.title": "instruments",
   "insts.clear": "effacer",

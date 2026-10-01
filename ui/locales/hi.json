@@ -74,6 +74,7 @@
   "transport.original": "ओरिजिनल",
   "transport.midi": "midi",
   "transport.position": "प्लेबैक की जगह",
+  "transport.speed": "प्लेबैक स्पीड",
 
   "insts.title": "इंस्ट्रूमेंट्स",
   "insts.clear": "साफ़ करें",

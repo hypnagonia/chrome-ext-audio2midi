@@ -74,6 +74,7 @@
   "transport.original": "original",
   "transport.midi": "midi",
   "transport.position": "Posição da reprodução",
+  "transport.speed": "Velocidade de reprodução",
 
   "insts.title": "instrumentos",
   "insts.clear": "limpar",

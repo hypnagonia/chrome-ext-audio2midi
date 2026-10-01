@@ -19,6 +19,7 @@ const CHORD_HISTORY_SEC = 30;
 const SILENCE_RMS = 1e-3;
 const SILENCE_SEC = 1.5;
 const MAX_RECORDING_SEC = 60 * 60; // keep at most an hour of audio for review
+const PREROLL_SEC = 0.5; // audio kept from before the first sound (note attacks)
 const MODELS = {
   small: { label: 'pill.fast', mb: 209 },
   medium: { label: 'pill.accurate', mb: 615 },
@@ -109,7 +110,7 @@ function loadModel(extra = {}) {
   showScreen('loading');
   setLoading(t('loading.ready'), '', null);
   updatePill();
-  const msg = { type: 'load', model: settings.model, token: settings.token, f16: !settings.f32, ...extra };
+  const msg = { type: 'load', model: settings.model, token: settings.token, f16: !settings.f32, autoLevel: settings.autoLevel !== false, ...extra };
   worker.postMessage(msg, msg.buffer ? [msg.buffer] : []);
 }
 
@@ -195,6 +196,7 @@ const session = {
   chords: new Map(), // instrument -> segments
   ensemble: [],
   key: null,
+  order: [], // channel order set by drag and drop (also the tab staff order)
   muted: new Set(), // channel strip M
   solo: new Set(), // channel strip S
   viewEnd: null, // live view: fixed right edge while scrolled back; null follows the newest notes
@@ -271,6 +273,7 @@ function onRefineEvents(msg) {
     session.notes = new Map();
     session.byInst.clear();
     for (const [k, n] of r.notes) addNote(k, n);
+    roll.refinger(session.byInst); // whole-song fingering now that every note is known
     roll.dirty = true;
     enterReview();
     renderPanel();
@@ -395,8 +398,7 @@ function renderPanel() {
   $('recBtn').classList.toggle('waiting', !!capture?.waiting);
 
   // Instruments by first appearance, drums last. Rows are reused so focus and hover survive updates.
-  const insts = [...session.byInst.keys()]
-    .sort((a, b) => (a === 'drums') - (b === 'drums') || session.byInst.get(a)[0].start - session.byInst.get(b)[0].start);
+  const insts = orderedInstruments();
   const list = $('instruments');
   // Move only rows that are out of place: re-inserting a focused row would drop its focus.
   insts.forEach((inst, i) => {
@@ -413,6 +415,23 @@ function renderPanel() {
 }
 
 const rowCache = new Map(); // instrument -> <li>
+
+/** Channel order: the user's drag-and-drop order, then new parts by first appearance, drums last. */
+function orderedInstruments() {
+  const auto = [...session.byInst.keys()]
+    .sort((a, b) => (a === 'drums') - (b === 'drums') || session.byInst.get(a)[0].start - session.byInst.get(b)[0].start);
+  const placed = session.order.filter((i) => session.byInst.has(i));
+  return [...placed, ...auto.filter((i) => !placed.includes(i))];
+}
+
+function moveChannel(inst, before) {
+  const order = orderedInstruments().filter((i) => i !== inst);
+  const at = before ? order.indexOf(before) : order.length;
+  order.splice(at < 0 ? order.length : at, 0, inst);
+  session.order = order;
+  roll.dirty = true;
+  renderPanel();
+}
 
 /** Notes of `list` (sorted by start) that start at or before T. */
 function upTo(list, T) {
@@ -439,6 +458,47 @@ function instrumentRow(inst, flats, T) {
       mixChanged();
     };
     // Any number of channels can be muted or soloed at once.
+    // Drag a strip to reorder channels (and the tab staffs with them).
+    li.draggable = true;
+    li.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/x-byear-channel', inst);
+      e.dataTransfer.effectAllowed = 'move';
+      li.classList.add('dragging');
+    });
+    li.addEventListener('dragend', () => {
+      li.classList.remove('dragging');
+      for (const el of document.querySelectorAll('.inst.dropBefore, .inst.dropAfter')) el.classList.remove('dropBefore', 'dropAfter');
+    });
+    li.addEventListener('dragover', (e) => {
+      if (!e.dataTransfer.types.includes('text/x-byear-channel')) return;
+      e.preventDefault();
+      const r = li.getBoundingClientRect();
+      const after = (e.clientX - r.left > r.width / 2) !== (document.dir === 'rtl');
+      li.classList.toggle('dropAfter', after);
+      li.classList.toggle('dropBefore', !after);
+    });
+    li.addEventListener('dragleave', () => li.classList.remove('dropBefore', 'dropAfter'));
+    li.addEventListener('drop', (e) => {
+      const from = e.dataTransfer.getData('text/x-byear-channel');
+      const after = li.classList.contains('dropAfter');
+      li.classList.remove('dropBefore', 'dropAfter');
+      if (!from || from === inst) return;
+      e.preventDefault();
+      const order = orderedInstruments().filter((i) => i !== from);
+      moveChannel(from, after ? order[order.indexOf(inst) + 1] : inst);
+    });
+    // Keyboard: Alt + arrow on a strip's buttons moves the channel.
+    li.addEventListener('keydown', (e) => {
+      if (!e.altKey || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+      e.preventDefault();
+      const order = orderedInstruments();
+      const i = order.indexOf(inst);
+      const dir = (e.key === 'ArrowRight') !== (document.dir === 'rtl') ? 1 : -1;
+      const j = Math.max(0, Math.min(order.length - 1, i + dir));
+      if (j === i) return;
+      moveChannel(inst, dir > 0 ? order[j + 1] : order[j]);
+      li.querySelector('.solo').focus();
+    });
     li.querySelector('.mute').addEventListener('click', () => toggle(session.muted));
     li.querySelector('.solo').addEventListener('click', () => toggle(session.solo));
     rowCache.set(inst, li);
@@ -498,7 +558,7 @@ function frame() {
       audible,
       end: reviewing() ? null : session.viewEnd,
       listening: !!capture && !capture.waiting,
-      instruments: [...rowCache.keys()].filter((i) => session.byInst.has(i)),
+      instruments: orderedInstruments(),
       byInst: session.byInst,
       label: instrumentLabel,
       chunk: CHUNK_SEC,
@@ -540,7 +600,8 @@ async function resample16k(samples, rate) {
 }
 
 /** Wire `makeSource(ctx)` into playback, the recorder and the 5 s chunker. */
-async function startCapture(makeSource, label, cleanup) {
+/** `begin` (optional) starts the sound once the whole graph is listening, so nothing is missed. */
+async function startCapture(makeSource, label, cleanup, begin) {
   const ctx = new AudioContext({ latencyHint: 'playback' });
   await ctx.audioWorklet.addModule('capture-worklet.js');
   const source = await makeSource(ctx);
@@ -563,6 +624,7 @@ async function startCapture(makeSource, label, cleanup) {
     ctx, rate, label, cleanup, captured: 0, chunk: new Float32Array(chunkLen), fill: 0, index: 0,
     stopped: false, pending: Promise.resolve(), level: 0, levelShown: 0, quietFor: 0,
     waiting: true, // nothing is recorded or timed until the first sound: no empty beginning
+    preroll: [], // the last PREROLL_SEC of quiet audio while waiting
   };
   let lastHint = null;
   const send = async (samples, seek, final) => {
@@ -592,6 +654,17 @@ async function startCapture(makeSource, label, cleanup) {
     c.pending = c.pending.then(() => send(samples, seek, final));
     return c.pending;
   };
+  const append = (data) => {
+    let off = 0;
+    while (off < data.length) {
+      const n = Math.min(data.length - off, chunkLen - c.fill);
+      c.chunk.set(data.subarray(off, off + n), c.fill);
+      c.fill += n;
+      off += n;
+      c.captured += n;
+      if (c.fill === chunkLen) c.flush(false);
+    }
+  };
   tap.port.onmessage = ({ data }) => {
     if (c.stopped) return;
     let e = 0;
@@ -600,8 +673,16 @@ async function startCapture(makeSource, label, cleanup) {
     // Auto pause on silence, auto resume when sound returns.
     c.quietFor = c.level < SILENCE_RMS ? c.quietFor + data.length / rate : 0;
     if (c.waiting) {
-      if (c.level < SILENCE_RMS) return;
+      if (c.level < SILENCE_RMS) {
+        // Keep the last moment of "silence": it holds the start of the attack of the
+        // note that wakes us up, which the model needs to hear that note at all.
+        c.preroll.push(data);
+        let held = c.preroll.reduce((a, b) => a + b.length, 0);
+        while (held - c.preroll[0].length >= PREROLL_SEC * rate) held -= c.preroll.shift().length;
+        return;
+      }
       c.waiting = false;
+      for (const block of c.preroll.splice(0)) append(block);
       renderPanel();
     } else if (c.quietFor >= SILENCE_SEC) {
       c.waiting = true;
@@ -616,17 +697,10 @@ async function startCapture(makeSource, label, cleanup) {
       renderPanel();
       return;
     }
-    let off = 0;
-    while (off < data.length) {
-      const n = Math.min(data.length - off, chunkLen - c.fill);
-      c.chunk.set(data.subarray(off, off + n), c.fill);
-      c.fill += n;
-      off += n;
-      c.captured += n;
-      if (c.fill === chunkLen) c.flush(false);
-    }
+    append(data);
   };
   capture = c;
+  if (begin) await begin();
   const rec = $('recBtn');
   rec.classList.add('on');
   rec.disabled = false;
@@ -757,14 +831,10 @@ async function startFile(fileOrUrl) {
   const url = owned ? URL.createObjectURL(fileOrUrl) : fileOrUrl;
   const audio = new Audio(url);
   audio.crossOrigin = 'anonymous';
-  await startCapture(async (ctx) => {
-    const src = ctx.createMediaElementSource(audio);
-    await audio.play();
-    return src;
-  }, owned ? fileOrUrl.name : url.split('/').pop(), () => {
+  await startCapture((ctx) => ctx.createMediaElementSource(audio), owned ? fileOrUrl.name : url.split('/').pop(), () => {
     audio.pause();
     if (owned) URL.revokeObjectURL(url);
-  });
+  }, () => audio.play()); // play only after the tap is connected: the first note is captured too
   audio.addEventListener('ended', stopCapture);
 }
 
@@ -857,6 +927,7 @@ $('clearBtn').addEventListener('click', () => {
   rowCache.clear();
   session.muted.clear();
   session.solo.clear();
+  session.order = [];
   session.viewEnd = null;
   roll.pitchScroll = 0;
   session.chords.clear();
@@ -894,6 +965,15 @@ $('playBtn').addEventListener('click', async () => {
   renderPanel();
 });
 player.onEnd = () => renderPanel();
+// Playback speed: 100% -> 75% -> 50% (pitch stays the same for the original audio).
+const SPEEDS = [1, 0.75, 0.5];
+function showSpeed() { $('speedBtn').textContent = `${Math.round(player.speed * 100)}%`; }
+$('speedBtn').addEventListener('click', async () => {
+  await player.setSpeed(SPEEDS[(SPEEDS.indexOf(player.speed) + 1) % SPEEDS.length]);
+  showSpeed();
+  renderPanel();
+});
+showSpeed();
 for (const b of $('transport').querySelectorAll('.switch button')) {
   b.addEventListener('click', () => {
     player.setMode(b.dataset.mode);
@@ -1105,7 +1185,13 @@ $('clearCache').addEventListener('click', () => worker.postMessage({ type: 'clea
 // ---------------------------------------------------------------- boot
 
 // Test hook (dev page only, never in the extension): read the timeline state.
-if (!isExtension) window.__byear = () => ({ now: session.now, done: session.done, viewEnd: session.viewEnd, t0: roll.t0, mode: roll.mode, window: roll.window, notes: session.notes.size });
+if (!isExtension) {
+  window.__byearTime = () => player.time;
+  window.__byear = () => ({
+    now: session.now, done: session.done, viewEnd: session.viewEnd, t0: roll.t0, mode: roll.mode, window: roll.window, notes: session.notes.size,
+    first: [...session.notes.values()].sort((a, b) => a.start - b.start).slice(0, 6).map((n) => [+n.start.toFixed(2), n.pitch, n.instrument]),
+  });
+}
 
 settings = await settingsStore.get();
 roll.window = ZOOM_STEPS.includes(settings.zoom) ? settings.zoom : 12;

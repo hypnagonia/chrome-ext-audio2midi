@@ -74,6 +74,7 @@
   "transport.original": "原音",
   "transport.midi": "midi",
   "transport.position": "再生位置",
+  "transport.speed": "再生速度",
 
   "insts.title": "楽器",
   "insts.clear": "クリア",

@@ -44,12 +44,55 @@ export class Player {
     this.gen = 0; // bumps on every play/pause so a stale play() can bail out
     this.nodes = new Set(); // started sources/oscillators, stopped on pause
     this.buffers = new WeakMap(); // segment -> AudioBuffer
+    this.speed = 1; // 1, 0.75, 0.5
+    this.el = null; // <audio> for slowed-down original audio (keeps pitch)
+    this.elActive = false;
+  }
+
+  async setSpeed(speed) {
+    const was = this.playing;
+    this.pause();
+    this.speed = speed;
+    if (was) await this.play();
+  }
+
+  /** The recording as one WAV (silent gaps filled), for pitch-preserving slow playback. */
+  _element() {
+    const key = `${this.segments.length}:${this.duration}`;
+    if (this.el && this.elKey === key) return this.el;
+    if (this.elUrl) URL.revokeObjectURL(this.elUrl);
+    const rate = this.segments[0]?.rate || 48000;
+    const n = Math.ceil(this.duration * rate);
+    const buf = new ArrayBuffer(44 + n * 2);
+    const v = new DataView(buf);
+    const str = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+    str(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    str(36, 'data'); v.setUint32(40, n * 2, true);
+    const pcm = new Int16Array(buf, 44, n);
+    for (const seg of this.segments) {
+      const at = Math.round(seg.seek * rate);
+      if (at < n) pcm.set(seg.data.subarray(0, Math.min(seg.data.length, n - at)), at);
+    }
+    this.elUrl = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+    if (!this.el) {
+      this.el = new Audio();
+      this.el.preservesPitch = true;
+      this.elSource = this.ctx.createMediaElementSource(this.el);
+      this.elGain = this.ctx.createGain();
+      this.elSource.connect(this.elGain).connect(this.master);
+    }
+    this.el.src = this.elUrl;
+    this.elKey = key;
+    return this.el;
   }
 
   /** Timeline position now. */
   get time() {
     if (!this.playing) return this.pos;
-    return Math.min(this.duration, Math.max(this.startPos, this.startPos + (this.ctx.currentTime - this.startAt)));
+    if (this.elActive) return Math.min(this.duration, this.el.currentTime);
+    return Math.min(this.duration, Math.max(this.startPos, this.startPos + (this.ctx.currentTime - this.startAt) * this.speed));
   }
 
   load({ segments, notes, duration, audible }) {
@@ -72,6 +115,21 @@ export class Player {
     }
     await this.ctx.resume();
     if (gen !== this.gen || this.playing) return; // paused or replayed while resuming
+    if (this.mode === 'original' && this.speed !== 1 && this.segments.length) {
+      // Slowed-down original: an <audio> element keeps the pitch.
+      const el = this._element();
+      el.currentTime = this.pos;
+      el.playbackRate = this.speed;
+      el.preservesPitch = true;
+      this.elGain.gain.value = 1;
+      await el.play();
+      if (gen !== this.gen) { el.pause(); return; }
+      this.elActive = true;
+      this.playing = true;
+      clearInterval(this.timer);
+      this.timer = setInterval(() => this._tick(), TICK_MS);
+      return;
+    }
     this.playing = true;
     this.startAt = this.ctx.currentTime + 0.05;
     this.startPos = this.pos;
@@ -90,6 +148,11 @@ export class Player {
     if (!this.playing) return;
     this.pos = this.time;
     this.playing = false;
+    if (this.elActive) {
+      this.el.pause();
+      this.elActive = false;
+      return;
+    }
     const { bus, ctx } = this;
     const at = ctx.currentTime;
     bus.gain.setTargetAtTime(0, at, 0.015);
@@ -140,18 +203,19 @@ export class Player {
   _tick() {
     if (!this.playing) return;
     const now = this.time;
-    if (now >= this.duration - 0.01) {
+    if (now >= this.duration - 0.01 || (this.elActive && this.el.ended)) {
       this.pause();
       this.pos = this.duration;
       this.onEnd();
       return;
     }
+    if (this.elActive) return; // the <audio> element plays itself
     const from = this.scheduledUntil;
     const to = Math.min(this.duration, now + LOOKAHEAD);
     if (to <= from) return;
     const first = from === this.startPos;
     this.scheduledUntil = to;
-    const when = (t) => this.startAt + (t - this.startPos);
+    const when = (t) => this.startAt + (t - this.startPos) / this.speed;
     if (this.mode === 'original') {
       for (const seg of this.segments) {
         const len = seg.data.length / seg.rate;
@@ -170,10 +234,10 @@ export class Player {
         if (n.start >= to) break;
         if (!this.audible(n.instrument)) continue;
         const end = n.end ?? n.start + 0.3;
-        if (n.start >= from) this._note(n, when(n.start), end - n.start);
+        if (n.start >= from) this._note(n, when(n.start), (end - n.start) / this.speed);
         // Starting inside a held note: sound the rest of it.
         else if (first && n.start < this.startPos && end > this.startPos + 0.05 && n.instrument !== 'drums') {
-          this._note(n, this.startAt, end - this.startPos);
+          this._note(n, this.startAt, (end - this.startPos) / this.speed);
         }
       }
     }

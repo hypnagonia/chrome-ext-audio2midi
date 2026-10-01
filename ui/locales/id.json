@@ -74,6 +74,7 @@
   "transport.original": "asli",
   "transport.midi": "midi",
   "transport.position": "Posisi pemutaran",
+  "transport.speed": "Kecepatan putar",
 
   "insts.title": "instrumen",
   "insts.clear": "hapus",

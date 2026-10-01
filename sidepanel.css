@@ -288,6 +288,15 @@ button:disabled { cursor: default; opacity: 0.35; }
 .switch button:hover:not(:disabled) { color: var(--ink); }
 .switch button[aria-checked=true] { background: var(--ink); color: var(--bg); }
 .time { font-size: 12px; color: var(--text); font-variant-numeric: tabular-nums; }
+.timeBox { display: flex; align-items: center; gap: 10px; }
+.speedBtn { border: 1px solid var(--line-strong); background: none; color: var(--text); font-size: 12px; padding: 0 6px; font-variant-numeric: tabular-nums; }
+.speedBtn:hover { color: var(--ink); border-color: var(--ink); }
+.inst[draggable=true] { cursor: grab; }
+.inst.dragging { opacity: 0.4; }
+.inst.dropBefore { box-shadow: inset 2px 0 0 var(--ink); }
+.inst.dropAfter { box-shadow: inset -2px 0 0 var(--ink); }
+[dir=rtl] .inst.dropBefore { box-shadow: inset -2px 0 0 var(--ink); }
+[dir=rtl] .inst.dropAfter { box-shadow: inset 2px 0 0 var(--ink); }
 .scrub { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--ink); height: 16px; }
 
 /* Instruments: one line of mixer channel strips, scrolling sideways when there are many. */

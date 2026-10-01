@@ -74,6 +74,7 @@
   "transport.original": "bản gốc",
   "transport.midi": "midi",
   "transport.position": "Vị trí phát",
+  "transport.speed": "Tốc độ phát",
 
   "insts.title": "nhạc cụ",
   "insts.clear": "xóa",

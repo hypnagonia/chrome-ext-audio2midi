@@ -10,7 +10,9 @@
 - **Live, in a side panel.** Keep watching the video. byEar writes along a few seconds behind, then re-listens to the whole recording when you stop, for a cleaner result.
 - **Vocals.** Switch on **vocals** for songs with singing and byEar follows the vocal line too.
 - **Learn songs by ear, faster.** Solo a part, zoom into the piano roll, click to jump, switch between the original and the MIDI.
-- **Tablature.** Switch the canvas from **midi** to **tab** for guitar and bass tabs (7-string guitar and 5-string bass when the part goes that low), fingered the way a player would.
+- **Tablature.** Switch the canvas from **midi** to **tab** for guitar and bass tabs (7-string guitar and 5-string bass when the part goes that low). After you stop, the whole song is fingered at once: standard chord shapes, few position jumps.
+- **Practice speed.** Play back at 75% or 50%; the original audio keeps its pitch.
+- **Your layout.** Drag the channel strips into the order you like; the tab staffs follow.
 - **Export MIDI.** One click, one track per instrument.
 - **Private.** Everything runs on your own GPU. No audio is uploaded anywhere, and there's no account.
 - **18 languages,** with note names the way musicians say them: C D E, Do Ré Mi, or C D E … H.

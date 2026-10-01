@@ -74,6 +74,7 @@
   "transport.original": "원본",
   "transport.midi": "midi",
   "transport.position": "재생 위치",
+  "transport.speed": "재생 속도",
 
   "insts.title": "악기",
   "insts.clear": "지우기",

@@ -205,6 +205,15 @@ export class PianoRoll {
     }
   }
 
+  /** Re-finger every part with the whole-song search (after refine, when all notes are known). */
+  refinger(byInst) {
+    for (const [inst, list] of byInst) {
+      if (inst === 'drums' || !list.length) continue;
+      this.fingering.optimize(inst, list, tuningFor(inst, this._lowest(inst, list)));
+    }
+    this.dirty = true;
+  }
+
   /** Lowest pitch of a part (cached per list length; lists only grow or get replaced). */
   _lowest(inst, list) {
     const c = (this.lowCache ||= new Map()).get(inst);

@@ -74,6 +74,7 @@
   "transport.original": "orijinal",
   "transport.midi": "midi",
   "transport.position": "Oynatma konumu",
+  "transport.speed": "Oynatma hızı",
 
   "insts.title": "enstrümanlar",
   "insts.clear": "temizle",

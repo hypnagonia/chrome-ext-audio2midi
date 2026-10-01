@@ -74,6 +74,7 @@
   "transport.original": "الأصلي",
   "transport.midi": "midi",
   "transport.position": "موضع التشغيل",
+  "transport.speed": "سرعة التشغيل",
 
   "insts.title": "الآلات",
   "insts.clear": "مسح",

@@ -74,6 +74,7 @@
   "transport.original": "оригінал",
   "transport.midi": "midi",
   "transport.position": "Позиція відтворення",
+  "transport.speed": "Швидкість відтворення",
 
   "insts.title": "інструменти",
   "insts.clear": "очистити",

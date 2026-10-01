@@ -127,7 +127,7 @@ async function download(model, token) {
   throw lastError?.code ? lastError : new CodedError(lastError?.message || 'Download failed.', 'download', { status: 'network' });
 }
 
-async function load({ model, token, buffer, url, f16 = true }, seq) {
+async function load({ model, token, buffer, url, f16 = true, autoLevel = true }, seq) {
   const stale = () => seq !== loadSeq;
   queue.length = 0;
   await pumping;
@@ -162,7 +162,7 @@ async function load({ model, token, buffer, url, f16 = true }, seq) {
   });
   const P = 'condition_provider.conditioners.self_wav.mel_spec_transform.';
   const mel = new MelFrontend(st.getF32(P + 'spectrogram.window').slice(), st.getF32(P + 'mel_scale.fb').slice());
-  transcriber = new Transcriber(engine, mel);
+  transcriber = new Transcriber(engine, mel, { autoLevel });
   transcriber.setInstruments(pendingInstruments ?? null);
   pendingInstruments = undefined;
   post({ type: 'ready', info: { gpu: `${engine.adapterInfo.vendor} ${engine.adapterInfo.architecture}`.trim(), f16 } });
