@@ -62,6 +62,12 @@
   "zoom.outTip": "缩小（显示更长的时间）",
   "zoom.seconds": "{n} 秒",
 
+  "view.label": "视图",
+  "view.roll": "钢琴卷帘",
+  "view.tab": "六线谱",
+  "view.rollShort": "midi",
+  "view.tabShort": "TAB",
+
   "transport.play": "播放",
   "transport.pause": "暂停",
   "transport.what": "播放内容",

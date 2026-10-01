@@ -242,10 +242,12 @@ button:disabled { cursor: default; opacity: 0.35; }
   font-size: 12px;
   pointer-events: none;
 }
+.rollTools { position: absolute; inset-inline-end: 8px; bottom: 40px; display: flex; gap: 6px; }
+.viewSwitch { display: flex; background: var(--bg); border: 1px solid var(--line-strong); }
+.viewSwitch button { border: 0; background: none; height: 24px; padding: 0 9px; font-size: 12px; color: var(--muted); }
+.viewSwitch button:hover { color: var(--ink); }
+.viewSwitch button[aria-checked=true] { background: var(--ink); color: var(--bg); }
 .zoom {
-  position: absolute;
-  inset-inline-end: 8px;
-  bottom: 40px;
   display: flex;
   align-items: center;
   background: var(--bg);

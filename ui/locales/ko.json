@@ -62,6 +62,12 @@
   "zoom.outTip": "축소 (더 긴 구간 보기)",
   "zoom.seconds": "{n}초",
 
+  "view.label": "보기",
+  "view.roll": "피아노 롤",
+  "view.tab": "타브 악보",
+  "view.rollShort": "midi",
+  "view.tabShort": "타브",
+
   "transport.play": "재생",
   "transport.pause": "일시정지",
   "transport.what": "재생할 소리",

@@ -62,6 +62,12 @@
   "zoom.outTip": "zoom out (show more time)",
   "zoom.seconds": "{n} s",
 
+  "view.label": "View",
+  "view.roll": "Piano roll",
+  "view.tab": "Tablature",
+  "view.rollShort": "midi",
+  "view.tabShort": "tab",
+
   "transport.play": "Play",
   "transport.pause": "Pause",
   "transport.what": "What to play",

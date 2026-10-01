@@ -6,6 +6,8 @@ import { MAX_PREFILL } from './gpu.js';
 import { autoLevel } from './level.js';
 import { instrumentConditionRows, tieSectionTokens, forbiddenTokens, tokenId } from './vocab.js';
 
+const VOICE_INDEX_BASE = 1e9; // note indices of the separate voice pass
+
 export class Transcriber {
   /** opts.autoLevel (default true): boost quiet chunks before the model hears them. */
   constructor(engine, mel, { autoLevel: level = true } = {}) {
@@ -20,14 +22,24 @@ export class Transcriber {
   reset() {
     this.decoder = new NoteDecoder();
     this.chunks = 0;
+    // The voice pass keeps its own continuity; its note indices never collide with the main pass.
+    this.voiceDecoder = new NoteDecoder();
+    this.voiceDecoder.nextIndex = VOICE_INDEX_BASE;
+    this.voiceChunks = 0;
+    this.keptVoice = new Set(); // voice-pass notes we kept (their ends follow later)
+    this.droppedVoice = new Set(); // main-pass voice notes we replaced
   }
 
   /**
-   * Instruments the model should expect, without forbidding others. This is MuScriptor's
-   * own conditioning input; e.g. a "voice" hint recovers vocals the model otherwise drops.
+   * Instruments the model should expect, without forbidding others (MuScriptor's own
+   * conditioning input). "voice" is special: it runs as a separate pass whose voice notes
+   * are added, so the other instruments come out exactly as without the hint.
    */
   setHint(names) {
-    this.hint = names && names.length ? names : null;
+    const list = names && names.length ? names : [];
+    this.voice = list.includes('voice');
+    const rest = list.filter((n) => n !== 'voice');
+    this.hint = rest.length ? rest : null;
   }
 
   /** Restrict (and condition) transcription to these instrument names; null for any. */
@@ -36,19 +48,9 @@ export class Transcriber {
     this.engine.setForbidden(forbiddenTokens(this.instruments));
   }
 
-  /**
-   * Transcribe one 5 s chunk. Pass samples = null to skip it (silence or
-   * falling behind): open notes then end at this chunk's start.
-   * @returns {events, stats}
-   */
-  async processChunk(samples, seekTime, nextSeekTime) {
-    const decoder = this.decoder; // stays with this chunk even if reset() runs meanwhile
-    const events = decoder.boundary(seekTime, nextSeekTime);
-    const first = this.chunks++ === 0;
-    if (!samples) return { events, stats: null };
-    const t0 = performance.now();
-    const mel = this.mel.compute(this.level(samples));
-    const instRows = instrumentConditionRows(this.instruments ?? this.hint);
+  /** One model pass over a chunk, continuing `decoder` (tie prologue unless it's the first chunk). */
+  async _pass(decoder, mel, names, first) {
+    const instRows = instrumentConditionRows(names);
     let prompt = [];
     if (!first) {
       // The tie prologue must fit the prefill pass. If an unusual pile of held notes
@@ -59,36 +61,90 @@ export class Transcriber {
       prompt = tieSectionTokens(keys);
       while (prompt.length > room && keep > 0) prompt = tieSectionTokens(keys.slice(0, --keep));
     }
-    const t1 = performance.now();
     const out = await this.engine.generate({ mel, instRows, prompt });
+    const events = [];
     for (const t of out.tokens) events.push(...decoder.token(t));
+    return { events, out };
+  }
+
+  /** Main-pass events without voice notes (the voice pass supplies those). */
+  _withoutVoice(events) {
+    return events.filter((e) => {
+      if (e.type === 'start' && e.instrument === 'voice') { this.droppedVoice.add(e.index); return false; }
+      return !(e.type === 'end' && this.droppedVoice.delete(e.index));
+    });
+  }
+
+  /** Voice-pass events: only the voice notes. */
+  _onlyVoice(events) {
+    return events.filter((e) => {
+      if (e.type === 'start') {
+        if (e.instrument !== 'voice') return false;
+        this.keptVoice.add(e.index);
+        return true;
+      }
+      return this.keptVoice.delete(e.index);
+    });
+  }
+
+  /**
+   * Transcribe one 5 s chunk. Pass samples = null to skip it (silence or
+   * falling behind): open notes then end at this chunk's start.
+   * @returns {events, stats}
+   */
+  async processChunk(samples, seekTime, nextSeekTime) {
+    const decoder = this.decoder; // stays with this chunk even if reset() runs meanwhile
+    const vdec = this.voiceDecoder;
+    let events = decoder.boundary(seekTime, nextSeekTime);
+    const vEvents = vdec.boundary(seekTime, nextSeekTime);
+    const first = this.chunks++ === 0;
+    if (!samples) return { events: [...events, ...this._onlyVoice(vEvents)], stats: null };
+    const t0 = performance.now();
+    const mel = this.mel.compute(this.level(samples));
+    const t1 = performance.now();
+    const main = await this._pass(decoder, mel, this.instruments ?? this.hint, first);
+    events.push(...main.events);
+    let generated = main.out.generated;
+    if (this.voice && !this.instruments) {
+      const voice = await this._pass(vdec, mel, ['voice'], this.voiceChunks++ === 0);
+      events = [...this._withoutVoice(events), ...this._onlyVoice([...vEvents, ...voice.events])];
+      generated += voice.out.generated;
+    } else if (vEvents.length) {
+      events.push(...this._onlyVoice(vEvents));
+    }
     const t2 = performance.now();
     return {
       events,
-      tokens: out.tokens,
-      stats: { melMs: t1 - t0, genMs: t2 - t1, generated: out.generated, eos: out.eos },
+      tokens: main.out.tokens,
+      stats: { melMs: t1 - t0, genMs: t2 - t1, generated, eos: main.out.eos },
     };
   }
 
   finish() {
-    return this.decoder.finish();
+    return [...this.decoder.finish(), ...this._onlyVoice(this.voiceDecoder.finish())];
   }
 
   /**
    * Transcribe one chunk on its own (no tie prologue from a neighbour), e.g.
    * to fill in a chunk that was skipped live. Notes still open at the end are
-   * closed at the chunk end. Uses its own decoder, so live state is untouched.
+   * closed at the chunk end. Uses its own decoders, so live state is untouched.
    */
   async isolated(samples, seekTime, nextSeekTime) {
-    const decoder = new NoteDecoder();
-    const events = decoder.boundary(seekTime, nextSeekTime);
-    const out = await this.engine.generate({
-      mel: this.mel.compute(this.level(samples)),
-      instRows: instrumentConditionRows(this.instruments ?? this.hint),
-    });
-    for (const t of out.tokens) events.push(...decoder.token(t));
-    decoder.boundary(nextSeekTime, null);
-    events.push(...decoder.token(tokenId('tie', 0))); // empty tie set: close everything
-    return events;
+    const mel = this.mel.compute(this.level(samples));
+    const once = async (names, base) => {
+      const decoder = new NoteDecoder();
+      decoder.nextIndex = base;
+      const events = decoder.boundary(seekTime, nextSeekTime);
+      events.push(...(await this._pass(decoder, mel, names, true)).events);
+      decoder.boundary(nextSeekTime, null);
+      events.push(...decoder.token(tokenId('tie', 0))); // empty tie set: close everything
+      return events;
+    };
+    const events = await once(this.instruments ?? this.hint, 0);
+    if (!this.voice || this.instruments) return events;
+    const voice = await once(['voice'], VOICE_INDEX_BASE);
+    const kept = new Set(voice.filter((e) => e.type === 'start' && e.instrument === 'voice').map((e) => e.index));
+    const dropped = new Set(events.filter((e) => e.type === 'start' && e.instrument === 'voice').map((e) => e.index));
+    return [...events.filter((e) => !dropped.has(e.index)), ...voice.filter((e) => kept.has(e.index))];
   }
 }

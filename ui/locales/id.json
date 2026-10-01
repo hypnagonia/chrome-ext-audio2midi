@@ -62,6 +62,12 @@
   "zoom.outTip": "perkecil (tampilkan rentang waktu lebih panjang)",
   "zoom.seconds": "{n} dtk",
 
+  "view.label": "Tampilan",
+  "view.roll": "Piano roll",
+  "view.tab": "Tablatur",
+  "view.rollShort": "midi",
+  "view.tabShort": "tab",
+
   "transport.play": "Putar",
   "transport.pause": "Jeda",
   "transport.what": "Yang diputar",

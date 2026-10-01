@@ -62,6 +62,12 @@
   "zoom.outTip": "تصغير (عرض مدة أطول)",
   "zoom.seconds": "{n} ث",
 
+  "view.label": "العرض",
+  "view.roll": "بيانو رول",
+  "view.tab": "التابلاتشر",
+  "view.rollShort": "midi",
+  "view.tabShort": "تاب",
+
   "transport.play": "تشغيل",
   "transport.pause": "إيقاف مؤقت",
   "transport.what": "ما الذي يُشغَّل",

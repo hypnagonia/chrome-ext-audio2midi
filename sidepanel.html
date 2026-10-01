@@ -91,10 +91,16 @@
       <p id="rollEmpty" class="rollEmpty"></p>
       <div id="noteTip" class="noteTip" hidden></div>
       <button id="liveBtn" class="liveBtn" type="button" data-i18n="live.jump" data-i18n-attr="data-tip:live.jumpTip" hidden></button>
+      <div class="rollTools">
+      <div class="viewSwitch" role="radiogroup" data-i18n-attr="aria-label:view.label">
+        <button type="button" role="radio" data-view="roll" data-i18n="view.rollShort" data-i18n-attr="title:view.roll,aria-label:view.roll"></button>
+        <button type="button" role="radio" data-view="tab" data-i18n="view.tabShort" data-i18n-attr="title:view.tab,aria-label:view.tab"></button>
+      </div>
       <div class="zoom" role="group" data-i18n-attr="aria-label:zoom.group">
         <button id="zoomOut" type="button" data-i18n-attr="aria-label:zoom.out,title:zoom.outTip">−</button>
         <span id="zoomLabel" aria-live="polite">12 s</span>
         <button id="zoomIn" type="button" data-i18n-attr="aria-label:zoom.in,title:zoom.inTip">+</button>
+      </div>
       </div>
     </div>
 

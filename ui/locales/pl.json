@@ -62,6 +62,12 @@
   "zoom.outTip": "pomniejsz (dłuższy fragment)",
   "zoom.seconds": "{n} s",
 
+  "view.label": "Widok",
+  "view.roll": "Piano roll",
+  "view.tab": "Tabulatura",
+  "view.rollShort": "midi",
+  "view.tabShort": "tab",
+
   "transport.play": "Odtwórz",
   "transport.pause": "Pauza",
   "transport.what": "Co odtwarzać",

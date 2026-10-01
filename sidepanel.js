@@ -1,6 +1,6 @@
 // Side panel: onboarding, model loading, audio capture and the live views.
 
-import { PianoRoll, ZOOM_STEPS } from './ui/pianoroll.js';
+import { PianoRoll, ZOOM_STEPS, TAB_MAX_WINDOW } from './ui/pianoroll.js';
 import { Player } from './ui/player.js';
 import { instrumentLabel, instrumentColor, noteName, drumName } from './ui/instruments.js';
 import { chordSegments, chordParts, estimateKey } from './music/chords.js';
@@ -35,6 +35,7 @@ const LINE_INSTRUMENTS = new Set([
 const DEFAULTS = {
   accepted: false, token: '', model: 'small', f32: false, instruments: [], zoom: 12, lang: 'auto', naming: 'auto',
   vocals: false, // tell the model the song has singing (conditioning hint)
+  view: 'roll', // canvas: 'roll' (piano roll) or 'tab' (tablature)
   refine: true, // re-transcribe the whole recording after stop
 };
 let settings = { ...DEFAULTS };
@@ -208,13 +209,17 @@ const session = {
 
 // ---------------------------------------------------------------- hints & refine
 
-/** Instruments clearly present so far (a hint for the model), plus voice when the user says so. */
+/**
+ * Hint for the refine pass: the instruments clearly present, never voice by itself.
+ * "voice" is added only by the vocals toggle, and then runs as a separate pass, so the
+ * toggle changes nothing but the voice track.
+ */
 function lineup() {
-  const pitchedTotal = [...session.byInst.values()].reduce((a, l) => a + l.length, 0);
+  const total = [...session.byInst.values()].reduce((a, l) => a + l.length, 0);
   const names = [...session.byInst.entries()]
-    .filter(([inst, l]) => !inst.startsWith('program_') && l.length >= Math.max(12, pitchedTotal * 0.02))
+    .filter(([inst, l]) => inst !== 'voice' && !inst.startsWith('program_') && l.length >= Math.max(12, total * 0.02))
     .map(([inst]) => inst);
-  if (settings.vocals && !names.includes('voice')) names.push('voice');
+  if (settings.vocals) names.push('voice');
   return names;
 }
 
@@ -493,6 +498,9 @@ function frame() {
       audible,
       end: reviewing() ? null : session.viewEnd,
       listening: !!capture && !capture.waiting,
+      instruments: [...rowCache.keys()].filter((i) => session.byInst.has(i)),
+      byInst: session.byInst,
+      label: instrumentLabel,
       chunk: CHUNK_SEC,
       chords: session.ensemble,
       flats: session.key?.useFlats ?? false,
@@ -553,11 +561,12 @@ async function startCapture(makeSource, label, cleanup) {
   worker.postMessage({ type: 'hint', part, names: null }); // no stale hint from an earlier refine
   const c = {
     ctx, rate, label, cleanup, captured: 0, chunk: new Float32Array(chunkLen), fill: 0, index: 0,
-    stopped: false, pending: Promise.resolve(), level: 0, levelShown: 0, quietFor: 0, waiting: false,
+    stopped: false, pending: Promise.resolve(), level: 0, levelShown: 0, quietFor: 0,
+    waiting: true, // nothing is recorded or timed until the first sound: no empty beginning
   };
   let lastHint = null;
   const send = async (samples, seek, final) => {
-    const hint = settings.vocals ? lineup() : null;
+    const hint = settings.vocals ? ['voice'] : null; // live: main pass unhinted, plus the voice pass
     if (JSON.stringify(hint) !== JSON.stringify(lastHint)) {
       lastHint = hint;
       worker.postMessage({ type: 'hint', part, names: hint });
@@ -764,7 +773,7 @@ async function startFile(fileOrUrl) {
 function showZoom(sec) {
   $('zoomLabel').textContent = t('zoom.seconds', { n: sec });
   $('zoomIn').disabled = sec <= ZOOM_STEPS[0];
-  $('zoomOut').disabled = sec >= ZOOM_STEPS[ZOOM_STEPS.length - 1];
+  $('zoomOut').disabled = sec >= (roll.mode === 'tab' ? TAB_MAX_WINDOW : ZOOM_STEPS[ZOOM_STEPS.length - 1]);
 }
 roll.onZoom = (sec) => {
   roll.dirty = true;
@@ -772,6 +781,22 @@ roll.onZoom = (sec) => {
   settingsStore.set({ zoom: sec });
 };
 $('zoomIn').addEventListener('click', () => roll.zoom(-1));
+
+// Piano roll or tablature
+function showView() {
+  roll.mode = settings.view === 'tab' ? 'tab' : 'roll';
+  roll.pitchScroll = 0;
+  if (roll.mode === 'tab' && roll.window > TAB_MAX_WINDOW) roll.window = TAB_MAX_WINDOW;
+  showZoom(roll.window);
+  roll.dirty = true;
+  for (const b of document.querySelectorAll('.viewSwitch button')) b.setAttribute('aria-checked', String(b.dataset.view === roll.mode));
+}
+for (const b of document.querySelectorAll('.viewSwitch button')) {
+  b.addEventListener('click', async () => {
+    await settingsStore.set({ view: b.dataset.view });
+    showView();
+  });
+}
 $('zoomOut').addEventListener('click', () => roll.zoom(1));
 
 $('agreeBtn').addEventListener('click', async () => {
@@ -810,7 +835,9 @@ $('fileInput').addEventListener('change', async (e) => {
 });
 
 $('exportBtn').addEventListener('click', () => {
-  const notes = [...session.notes.values()].map((n) => ({ ...n, end: n.end ?? session.done }));
+  // The file starts at the first note: no empty bars before the music.
+  const first = Math.min(...[...session.notes.values()].map((n) => n.start));
+  const notes = [...session.notes.values()].map((n) => ({ ...n, start: n.start - first, end: (n.end ?? session.done) - first }));
   const blob = new Blob([notesToMidi(notes)], { type: 'audio/midi' });
   const a = document.createElement('a');
   const d = new Date();
@@ -1066,7 +1093,6 @@ $('settings').addEventListener('close', async () => {
   const reload = next.model !== settings.model || next.f32 !== settings.f32 || (next.token !== settings.token && !modelInfo);
   await settingsStore.set(next);
   if (localeChanged) await applyLocale();
-showVocals();
   worker.postMessage({ type: 'instruments', names: settings.instruments });
   if (reload && settings.accepted) {
     if (capture) await stopCapture();
@@ -1078,10 +1104,15 @@ $('clearCache').addEventListener('click', () => worker.postMessage({ type: 'clea
 
 // ---------------------------------------------------------------- boot
 
+// Test hook (dev page only, never in the extension): read the timeline state.
+if (!isExtension) window.__byear = () => ({ now: session.now, done: session.done, viewEnd: session.viewEnd, t0: roll.t0, mode: roll.mode, window: roll.window, notes: session.notes.size });
+
 settings = await settingsStore.get();
 roll.window = ZOOM_STEPS.includes(settings.zoom) ? settings.zoom : 12;
 showZoom(roll.window);
 await applyLocale();
+showVocals();
+showView();
 if (params.get('weights')) loadModel({ url: new URL(params.get('weights'), location.href).href });
 else if (settings.accepted) loadModel();
 else showScreen('welcome');

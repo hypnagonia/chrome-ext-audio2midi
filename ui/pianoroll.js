@@ -3,6 +3,7 @@
 
 import { instrumentColor, noteName } from './instruments.js';
 import { chordName } from '../music/chords.js';
+import { Fingering, tuningFor, stringNames } from '../music/tab.js';
 
 const DRUM_LANE = 18;
 const CHORD_LANE = 22;
@@ -10,6 +11,7 @@ const RULER = 16;
 const fmtTime = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 const BLACK_KEYS = new Set([1, 3, 6, 8, 10]);
 export const ZOOM_STEPS = [3, 5, 8, 12, 20, 30, 45, 60]; // seconds visible
+export const TAB_MAX_WINDOW = 8; // tablature: zoom out only this far, so fret numbers keep room
 
 const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)');
 const THEME_VARS = ['--pending-pulse', '--paper', '--rule', '--rule-strong', '--ink', '--muted', '--live', '--roll-black', '--pending', '--pending-line', '--chord-font', '--label-font'];
@@ -40,6 +42,8 @@ export class PianoRoll {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.window = 12; // seconds visible
+    this.mode = 'roll'; // 'roll' (piano roll) or 'tab' (tablature)
+    this.fingering = new Fingering();
     this.onZoom = () => {};
     this.onPan = () => {}; // (seconds) positive = later in time
     this.hits = []; // [{x, y, w, h, note}] from the last draw, for hover
@@ -89,8 +93,9 @@ export class PianoRoll {
 
   /** dir -1 zooms in (fewer seconds), +1 zooms out. */
   zoom(dir) {
-    const i = ZOOM_STEPS.findIndex((v) => v >= this.window);
-    const next = ZOOM_STEPS[Math.max(0, Math.min(ZOOM_STEPS.length - 1, (i < 0 ? ZOOM_STEPS.length - 1 : i) + dir))];
+    const steps = this.mode === 'tab' ? ZOOM_STEPS.filter((s) => s <= TAB_MAX_WINDOW) : ZOOM_STEPS;
+    const i = steps.findIndex((v) => v >= this.window);
+    const next = steps[Math.max(0, Math.min(steps.length - 1, (i < 0 ? steps.length - 1 : i) + dir))];
     if (next !== this.window) {
       this.window = next;
       this.pitchScroll = 0;
@@ -102,6 +107,112 @@ export class PianoRoll {
   _watchDpr() {
     const mq = matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
     mq.addEventListener('change', () => { this._resize(); this._watchDpr(); }, { once: true });
+  }
+
+  /**
+   * Tablature: one staff per audible instrument (4-string bass staff for bass parts,
+   * 6-string guitar staff for everything else), fret numbers on the strings and a faint
+   * line for how long each note rings. Staffs scroll vertically when they don't fit.
+   */
+  _drawTab(s, { t0, t1, x, top, bottom, w, v, hits }) {
+    const { ctx } = this;
+    const insts = (s.instruments || []).filter((i) => i !== 'drums' && s.audible(i) && s.byInst?.get(i)?.length);
+    const areaH = bottom - top;
+    this.vOverflow = false;
+    if (!insts.length) return;
+    const minStaff = 92;
+    const staffH = Math.max(minStaff, areaH / insts.length);
+    const totalH = staffH * insts.length;
+    const maxScroll = Math.max(0, totalH - areaH);
+    this.vOverflow = maxScroll > 0;
+    // pitchScroll doubles as the staff scroll here (in staff-pixel units of rowH = 1).
+    this.rowH = 1;
+    this.pitchScroll = Math.max(-maxScroll, Math.min(0, this.pitchScroll));
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, top, w, areaH);
+    ctx.clip();
+    insts.forEach((inst, idx) => {
+      const staffTop = top + idx * staffH + this.pitchScroll;
+      if (staffTop > bottom || staffTop + staffH < top) return;
+      const list = s.byInst.get(inst);
+      const lowest = this._lowest(inst, list);
+      const tuning = tuningFor(inst, lowest);
+      const names = stringNames(tuning);
+      const color = instrumentColor(inst);
+      const gap = Math.min(16, (staffH - 26) / (tuning.length - 1));
+      const lineY = (str) => staffTop + 18 + (tuning.length - 1 - str) * gap; // high string on top
+      // Staff label + string lines
+      ctx.font = `bold 11px ${v['--label-font']}`;
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = color;
+      ctx.fillRect(4, staffTop + 6, 8, 3);
+      ctx.fillStyle = v['--muted'];
+      ctx.fillText(s.label?.(inst) ?? inst, 16, staffTop + 8);
+      for (let st = 0; st < tuning.length; st++) {
+        ctx.fillStyle = v['--rule-strong'];
+        ctx.fillRect(14, Math.round(lineY(st)), w - 14, 1);
+      }
+      // Notes
+      this.fingering.assign(inst, list, t0 - 10, t1, tuning);
+      const size = Math.max(9, Math.min(13, gap));
+      const font = `bold ${size}px ${v['--label-font']}`;
+      const lastRight = new Map(); // string -> right edge of the last number drawn on it
+      for (const n of list) {
+        if (n.start > t1) break;
+        const end = n.end ?? s.done;
+        if (end < t0) continue;
+        const p = this.fingering.get(n, inst);
+        if (!p) continue;
+        const nx = x(n.start);
+        const ny = lineY(p.string);
+        ctx.globalAlpha = 0.45;
+        ctx.fillStyle = color;
+        ctx.fillRect(nx, ny - 1, Math.max(2, x(end) - nx), 3);
+        ctx.globalAlpha = 1;
+        const text = String(p.fret);
+        const tw = this._width(text, font);
+        // Too close to the previous number on this string: a small tick instead of a blended number.
+        if (nx - 1 < (lastRight.get(p.string) ?? -Infinity)) {
+          ctx.fillStyle = v['--ink'];
+          ctx.fillRect(nx, ny - 3, 1.5, 6);
+          hits.push({ x: nx - 2, y: ny - 4, w: 5, h: 8, note: n });
+          continue;
+        }
+        lastRight.set(p.string, nx + tw + 2);
+        ctx.fillStyle = v['--paper'];
+        ctx.fillRect(nx - 2, ny - size / 2 - 1, tw + 4, size + 2); // break the string line
+        ctx.font = font;
+        ctx.fillStyle = v['--ink'];
+        ctx.fillText(text, nx, ny + 0.5);
+        hits.push({ x: nx - 2, y: ny - size / 2 - 1, w: tw + 4, h: size + 2, note: n });
+      }
+      // String names last, on their own backing, so fret numbers never cover them.
+      ctx.font = `10px ${v['--label-font']}`;
+      for (let st = 0; st < tuning.length; st++) {
+        ctx.fillStyle = v['--paper'];
+        ctx.fillRect(0, lineY(st) - 6, 13, 12);
+        ctx.fillStyle = v['--muted'];
+        ctx.fillText(names[st], 3, lineY(st));
+      }
+    });
+    ctx.restore();
+    if (this.vOverflow) {
+      const barH = Math.max(16, (areaH / totalH) * areaH);
+      const barTop = top + (-this.pitchScroll / totalH) * areaH;
+      ctx.fillStyle = v['--rule-strong'];
+      ctx.fillRect(w - 4, barTop, 3, barH);
+    }
+  }
+
+  /** Lowest pitch of a part (cached per list length; lists only grow or get replaced). */
+  _lowest(inst, list) {
+    const c = (this.lowCache ||= new Map()).get(inst);
+    if (c && c.list === list && c.n === list.length) return c.low;
+    let low = Infinity;
+    for (const n of list) low = Math.min(low, n.pitch);
+    this.lowCache.set(inst, { list, n: list.length, low });
+    return low;
   }
 
   /** Right edge of the live view: the newest notes plus a thin strip of audio in flight. */
@@ -212,7 +323,7 @@ export class PianoRoll {
     // Black-key rows and C lines
     ctx.font = `11px ${v['--label-font']}`;
     ctx.textBaseline = 'bottom';
-    for (let p = pLo; p <= pHi; p++) {
+    for (let p = pLo; p <= pHi && this.mode !== 'tab'; p++) {
       if (BLACK_KEYS.has(((p % 12) + 12) % 12)) {
         ctx.fillStyle = v['--roll-black'];
         ctx.fillRect(0, y(p), w, rowH);
@@ -279,6 +390,9 @@ export class PianoRoll {
     }
     ctx.globalAlpha = 1;
 
+    if (this.mode === 'tab') {
+      this._drawTab(s, { t0, t1, x, top, bottom, w, v, hits }); // has its own save/clip/restore
+    } else {
     // Pitched notes, clipped to the note area
     ctx.save();
     ctx.beginPath();
@@ -313,6 +427,7 @@ export class PianoRoll {
       ctx.fillText(text, Math.max(nx, 0) + 2, y(n.pitch) + rowH / 2 + 0.5);
     }
     ctx.restore();
+    }
 
     // Chord lane
     ctx.fillStyle = v['--paper'];

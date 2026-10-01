@@ -62,6 +62,12 @@
   "zoom.outTip": "зменшити (показати більше часу)",
   "zoom.seconds": "{n} с",
 
+  "view.label": "Вигляд",
+  "view.roll": "Піаноролл",
+  "view.tab": "Табулатура",
+  "view.rollShort": "midi",
+  "view.tabShort": "таби",
+
   "transport.play": "Відтворити",
   "transport.pause": "Пауза",
   "transport.what": "Що відтворювати",

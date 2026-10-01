@@ -62,6 +62,12 @@
   "zoom.outTip": "ज़ूम आउट (ज़्यादा समय दिखाएं)",
   "zoom.seconds": "{n} सेकंड",
 
+  "view.label": "दृश्य",
+  "view.roll": "पियानो रोल",
+  "view.tab": "टैबलेचर",
+  "view.rollShort": "midi",
+  "view.tabShort": "टैब",
+
   "transport.play": "चलाएं",
   "transport.pause": "रोकें",
   "transport.what": "क्या चलाना है",

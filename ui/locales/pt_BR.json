@@ -62,6 +62,12 @@
   "zoom.outTip": "diminuir zoom (mostrar mais tempo)",
   "zoom.seconds": "{n} s",
 
+  "view.label": "Visualização",
+  "view.roll": "Piano roll",
+  "view.tab": "Tablatura",
+  "view.rollShort": "midi",
+  "view.tabShort": "tab",
+
   "transport.play": "Reproduzir",
   "transport.pause": "Pausar",
   "transport.what": "O que reproduzir",
