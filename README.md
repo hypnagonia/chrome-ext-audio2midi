@@ -53,6 +53,6 @@ python3 -m http.server 8765 & node tests/run-in-chrome.mjs "http://127.0.0.1:876
 
 ## Credits and license
 
-Made by [jenyadoesapps](https://jenyadoesapps.com/).
+Made by [jenyadoesapps](https://jenyadoesapps.com/). Privacy: byEar collects no data, see [PRIVACY.md](PRIVACY.md).
 
 Transcription uses the open MuScriptor model by Kyutai and Mirelo ([paper](https://arxiv.org/abs/2607.08168)), whose weights are licensed [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/): personal and research use only, not commercial. Only transcribe music you have the rights to.
