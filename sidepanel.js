@@ -413,6 +413,7 @@ function onEvents(msg) {
     if (!session.backfilling) banner('');
   }
   const prefix = msg.backfill ? `${msg.part}b${msg.backfill}` : `${msg.part}`;
+  if (!isExtension && msg.seek != null) (session.statsLog ||= []).push([msg.seek, msg.events.filter((e) => e.type === 'start').length, msg.stats ? Math.round(msg.stats.genMs) : msg.dropped ? 'drop' : 'skip', msg.backlog]);
   for (const ev of msg.events) {
     const k = `${prefix}:${ev.index}`;
     if (ev.type === 'start') addNote(k, { instrument: ev.instrument, pitch: ev.pitch, start: ev.time, end: null });
@@ -1337,7 +1338,7 @@ if (!isExtension) {
   window.__byearTime = () => player.time;
   window.__byearGaps = () => { const st = [...session.notes.values()].filter((n) => n.instrument !== 'drums').map((n) => n.start).sort((a, b) => a - b); let g = 0, at = 0; for (let i = 1; i < st.length; i++) if (st[i] - st[i - 1] > g) { g = st[i] - st[i - 1]; at = st[i - 1]; } return { longestGap: +g.toFixed(2), at: +at.toFixed(2), duration: player.duration }; };
   window.__byearSel = () => session.selected && { pitch: session.selected.pitch, instrument: session.selected.instrument };
-  window.__byearState = () => ({ refine: !!session.refine, audio: session.audio.length, backfilling: session.backfilling, capture: !!capture, setting: settings.refine, reviewing: reviewing() });
+  window.__byearState = () => ({ dropped: session.dropped, droppedSeeks: session.droppedSeeks.map((d) => d.seek), stats: session.statsLog, refine: !!session.refine, audio: session.audio.length, backfilling: session.backfilling, capture: !!capture, setting: settings.refine, reviewing: reviewing() });
   window.__byearPos = () => session.selected && roll.fingering.get(session.selected, session.selected.instrument);
   window.__byear = () => ({
     now: session.now, done: session.done, viewEnd: session.viewEnd, t0: roll.t0, mode: roll.mode, window: roll.window, notes: session.notes.size,

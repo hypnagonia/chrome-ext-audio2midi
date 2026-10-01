@@ -5,6 +5,7 @@ import { NoteDecoder } from '../engine/decoder.js';
 const ref = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
 const seeks = ref.tokens.filter((t) => Array.isArray(t)).map((t) => t[1]);
 const dec = new NoteDecoder();
+dec.keepLeadIn = false; // parity with the reference decoder
 const evs = [];
 let chunk = 0;
 for (const t of ref.tokens) {

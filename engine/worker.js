@@ -169,12 +169,15 @@ async function load({ model, token, buffer, url, f16 = true, autoLevel = true },
   pump(); // jobs that arrived while loading
 }
 
+/** Newer live chunks of the same session already waiting behind this one. */
+const behind = (job) => (job.live ? queue.filter((j) => j.type === 'chunk' && j.live && j.part === job.part).length : 0);
+
 /**
- * Only live chunks may be skipped (to keep up while listening), and only when a newer
- * live chunk of the same session is already waiting. Refine and backfill chunks never are.
+ * Keeping up while listening. One chunk behind: hurry (no extra voice pass, no retry), which
+ * usually catches up. Only two or more behind is a live chunk skipped (filled in after stop).
+ * Refine and backfill chunks are never skipped.
  */
-const superseded = (job) => job.type === 'chunk' && job.live
-  && queue.some((j) => j.type === 'chunk' && j.live && j.part === job.part);
+const superseded = (job) => job.type === 'chunk' && behind(job) >= 2;
 
 async function runJob(job) {
   if (pendingInstruments !== undefined) {
@@ -200,7 +203,8 @@ async function runJob(job) {
     default: {
       // Falling behind: skip this chunk (its notes end at the chunk start) and catch up.
       const dropped = superseded(job);
-      const r = await transcriber.processChunk(job.type === 'chunk' && !dropped ? job.samples : null, job.seek, job.next);
+      const r = await transcriber.processChunk(job.type === 'chunk' && !dropped ? job.samples : null, job.seek, job.next,
+        { hurry: behind(job) >= 1 });
       if (r.failed) post({ type: 'error', message: r.error?.message || String(r.error), code: r.error?.code ?? null });
       post({ type: 'events', part: job.part, seek: job.seek, events: r.events, stats: r.stats, dropped, failed: !!r.failed, backlog: queue.length });
     }

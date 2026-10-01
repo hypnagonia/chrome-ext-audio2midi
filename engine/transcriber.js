@@ -4,9 +4,22 @@
 import { NoteDecoder } from './decoder.js';
 import { MAX_PREFILL } from './gpu.js';
 import { autoLevel } from './level.js';
-import { instrumentConditionRows, tieSectionTokens, forbiddenTokens, tokenId } from './vocab.js';
+import { VOCAB, instrumentConditionRows, tieSectionTokens, forbiddenTokens, tokenId } from './vocab.js';
 
 const VOICE_INDEX_BASE = 1e9; // note indices of the separate voice pass
+const NOTE_ON = new Set(['pitch', 'drum']);
+
+/** True when generated tokens (after the forced prompt) contain any note or drum hit. */
+function hasNotes(tokens, from) {
+  for (let i = from; i < tokens.length; i++) if (NOTE_ON.has(VOCAB[tokens[i]]?.type)) return true;
+  return false;
+}
+
+const rms = (x) => {
+  let e = 0;
+  for (let i = 0; i < x.length; i += 4) e += x[i] * x[i];
+  return Math.sqrt(e / Math.max(1, x.length / 4));
+};
 
 export class Transcriber {
   /** opts.autoLevel (default true): boost quiet chunks before the model hears them. */
@@ -48,8 +61,13 @@ export class Transcriber {
     this.engine.setForbidden(forbiddenTokens(this.instruments));
   }
 
-  /** One model pass over a chunk, continuing `decoder` (tie prologue unless it's the first chunk). */
-  async _pass(decoder, mel, names, first) {
+  /**
+   * One model pass over a chunk, continuing `decoder`. The tie prologue (notes held over
+   * from the previous chunk) is forced, except on a first chunk where the model writes its
+   * own (notes already sounding when the audio starts). A chunk that has sound but comes back without a single note gets one more try from a
+   * clean start (held notes end at the chunk start), unless we're in a hurry.
+   */
+  async _pass(decoder, mel, names, first, { loud = false, hurry = false } = {}) {
     const instRows = instrumentConditionRows(names);
     let prompt = [];
     if (!first) {
@@ -61,7 +79,12 @@ export class Transcriber {
       prompt = tieSectionTokens(keys);
       while (prompt.length > room && keep > 0) prompt = tieSectionTokens(keys.slice(0, --keep));
     }
-    const out = await this.engine.generate({ mel, instRows, prompt });
+    let out = await this.engine.generate({ mel, instRows, prompt });
+    if (loud && !hurry && !hasNotes(out.tokens, prompt.length)) {
+      const retry = await this.engine.generate({ mel, instRows, prompt: tieSectionTokens([]) });
+      retry.generated += out.generated;
+      out = retry;
+    }
     const events = [];
     for (const t of out.tokens) events.push(...decoder.token(t));
     return { events, out };
@@ -100,10 +123,11 @@ export class Transcriber {
    * so no note is left open in the panel.
    * @returns {events, stats, failed, error}
    */
-  async processChunk(samples, seekTime, nextSeekTime) {
+  async processChunk(samples, seekTime, nextSeekTime, { hurry = false } = {}) {
     const decoder = this.decoder; // stays with this chunk even if reset() runs meanwhile
     const vdec = this.voiceDecoder;
-    const voiceOn = this.voice && !this.instruments;
+    // Falling behind: the extra voice pass waits (its open notes end) rather than a chunk being lost.
+    const voiceOn = this.voice && !this.instruments && !(hurry && samples);
     const mainEvents = decoder.boundary(seekTime, nextSeekTime);
     const voiceEvents = vdec.boundary(seekTime, nextSeekTime);
     const first = this.chunks++ === 0;
@@ -113,13 +137,15 @@ export class Transcriber {
     let generated = 0, eos = false, tokens = [];
     let t1 = t0;
     try {
-      const mel = this.mel.compute(this.level(samples));
+      const leveled = this.level(samples);
+      const mel = this.mel.compute(leveled);
       t1 = performance.now();
-      const main = await this._pass(decoder, mel, this.instruments ?? this.hint, first);
+      const opts = { loud: rms(leveled) > 0.01, hurry };
+      const main = await this._pass(decoder, mel, this.instruments ?? this.hint, first, opts);
       mainEvents.push(...main.events);
       ({ generated, eos, tokens } = { generated: main.out.generated, eos: main.out.eos, tokens: main.out.tokens });
       if (voiceOn) {
-        const voice = await this._pass(vdec, mel, ['voice'], this.voiceChunks++ === 0);
+        const voice = await this._pass(vdec, mel, ['voice'], this.voiceChunks++ === 0, { hurry: true });
         voiceEvents.push(...voice.events);
         generated += voice.out.generated;
       }

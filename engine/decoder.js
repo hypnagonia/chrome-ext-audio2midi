@@ -20,6 +20,7 @@ export class NoteDecoder {
     this.skipRest = false;
     this.tieSet = new Set();
     this.chunkStarted = false;
+    this.keepLeadIn = true; // false: drop unknown held notes, exactly like the reference
   }
 
   /** Begin a chunk. Returns events closed by a malformed previous chunk. */
@@ -49,22 +50,32 @@ export class NoteDecoder {
     if (!(id >= 0 && id < VOCAB.length)) return out;
     const { type, value } = VOCAB[id];
     if (this.inPrologue) {
-      if (type === 'tie') {
+      if (type === 'tie' || type === 'shift') {
+        // A shift before the tie: the model skipped the end of the prologue. The reference
+        // decoder drops the rest of the chunk (a 5 s hole in the music); we read on instead.
         this.inPrologue = false;
         this.velocity = null;
         for (const [k, n] of [...this.open]) {
           if (!this.tieSet.has(k)) this._end(k, n, this.seekTime, out);
         }
-      } else if (type === 'shift') {
-        this.inPrologue = false;
-        this.skipRest = true;
-        this._endAll(this.seekTime, out);
-      } else if (type === 'program') {
-        this.program = value;
-      } else if (type === 'pitch' && this.program !== null) {
-        this.tieSet.add(key(this.program, value));
+        // Held notes we didn't know of (the first chunk: already sounding when the audio
+        // starts) begin at the chunk start instead of being lost.
+        for (const k of this.keepLeadIn ? this.tieSet : []) {
+          if (this.open.has(k)) continue;
+          const [program, pitch] = k.split(':').map(Number);
+          if (program === 128) continue; // drums don't sustain
+          this.open.set(k, { program, pitch, time: this.seekTime });
+          const start = this._mint(pitch, this.seekTime, instrumentForProgram(program));
+          this.startEvents.set(k, start);
+          out.push(start);
+        }
+        if (type === 'tie') return out;
+        this.program = null; // the shift itself is read below, as in the body
+      } else {
+        if (type === 'program') this.program = value;
+        else if (type === 'pitch' && this.program !== null) this.tieSet.add(key(this.program, value));
+        return out;
       }
-      return out;
     }
     if (this.skipRest) return out;
 
