@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>byEar promo tile</title>
+<style>
+  @font-face { font-family: 'ByEar Mono'; src: local('Courier New'), local('CourierNewPSMT'); }
+  @font-face { font-family: 'ByEar Mono'; font-weight: bold; src: local('Courier New Bold'), local('CourierNewPS-BoldMT'); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 440px; height: 280px; overflow: hidden; background: #111; color: #eee; font-family: 'ByEar Mono', 'Courier New', monospace; }
+  .tile { position: relative; width: 440px; height: 280px; padding: 34px 32px; }
+  .brand { display: flex; align-items: center; gap: 12px; font-weight: bold; font-size: 30px; letter-spacing: -0.03em; }
+  .brand img { width: 44px; height: 44px; border-radius: 10px; }
+  .tag { position: absolute; left: 32px; bottom: 34px; font-size: 19px; line-height: 1.35; font-weight: bold; letter-spacing: -0.02em; }
+  .tag span { color: #8a8a8a; font-weight: normal; }
+  .chord { position: absolute; right: 30px; top: 92px; font-weight: bold; font-size: 64px; letter-spacing: -0.05em; line-height: 1; }
+  .chord sup { font-size: 30px; font-weight: normal; vertical-align: 30px; letter-spacing: 0; }
+  .roll { position: absolute; right: 30px; bottom: 34px; width: 170px; height: 70px; }
+  .roll i { position: absolute; height: 12px; border-radius: 2px; }
+  .rule { position: absolute; left: 0; right: 0; top: 0; bottom: 0; border-top: 1px solid #262626; border-bottom: 1px solid #262626; }
+</style>
+</head>
+<body>
+<div class="tile">
+  <div class="brand"><img src="../../icons/128.png" alt=""> byEar</div>
+  <div class="chord">G<sup>maj7</sup></div>
+  <div class="roll">
+    <div class="rule"></div>
+    <i style="left: 0; width: 64px; top: 8px; background: #5B8DEF"></i>
+    <i style="left: 70px; width: 100px; top: 8px; background: #5B8DEF"></i>
+    <i style="left: 26px; width: 90px; top: 29px; background: #E5A12E"></i>
+    <i style="left: 0; width: 22px; top: 50px; background: #2E9E6A"></i>
+    <i style="left: 120px; width: 50px; top: 50px; background: #2E9E6A"></i>
+  </div>
+  <div class="tag">Hear a song,<br><span>see its chords.</span></div>
+</div>
+</body>
+</html>
