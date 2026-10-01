@@ -51,7 +51,7 @@ tags:
 
 # MuScriptor {size} (fp16 mirror)
 
-An fp16 copy of [MuScriptor/muscriptor-{size}](https://huggingface.co/MuScriptor/muscriptor-{size}) ({PARAMS[size]} parameters), the multi-instrument music transcription model by [Mirelo](https://www.mirelo.ai/) and [Kyutai](https://kyutai.org/). It's mirrored here so the [byEar](https://jenyadoesapps.com/) Chrome extension can download it without a Hugging Face login. It runs fully on your GPU with WebGPU.
+An fp16 copy of [MuScriptor/muscriptor-{size}](https://huggingface.co/MuScriptor/muscriptor-{size}) ({PARAMS[size]} parameters), the multi-instrument music transcription model by [Mirelo](https://www.mirelo.ai/) and [Kyutai](https://kyutai.org/). It's mirrored here so the [byEar](https://github.com/hypnagonia/chrome-ext-audio2midi) Chrome extension by [jenyadoesapps](https://jenyadoesapps.com/) can download it without a Hugging Face login. It runs fully on your GPU with WebGPU.
 
 **Changes from the original:** transformer weights converted from fp32 to fp16, which halves the download. The audio-conditioning tensors (`condition_provider.*`) are kept in fp32. Tensor names are unchanged, so the official [`muscriptor`](https://github.com/muscriptor/muscriptor) package loads this file as is.
 
