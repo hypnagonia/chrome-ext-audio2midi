@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "byEar – Détecteur d'accords et audio vers MIDI"
+  },
+  "extShortName": {
+    "message": "byEar"
+  },
+  "extDescription": {
+    "message": "Écoutez un morceau, voyez ses accords. Accords, notes et tonalité en direct dans Chrome, export MIDI. Privé, sur votre GPU."
+  },
+  "actionTitle": {
+    "message": "byEar : voir les accords de cet onglet"
+  }
+}

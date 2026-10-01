@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "byEar – استخراج أكوردات الأغاني وتحويل الصوت إلى MIDI"
+  },
+  "extShortName": {
+    "message": "byEar"
+  },
+  "extDescription": {
+    "message": "استمع إلى أغنية وشاهد أكورداتها. أكوردات ونوتات ومقام أي صوت في Chrome مباشرةً، مع تصدير MIDI. خاص ويعمل على GPU جهازك."
+  },
+  "actionTitle": {
+    "message": "byEar: اعرض أكوردات هذا التبويب"
+  }
+}

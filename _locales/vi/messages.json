@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "byEar – Dò hợp âm (chord) bài hát & chuyển âm thanh sang MIDI"
+  },
+  "extShortName": {
+    "message": "byEar"
+  },
+  "extDescription": {
+    "message": "Nghe bài hát, thấy ngay hợp âm. Hợp âm, nốt và giọng trực tiếp từ mọi âm thanh trong Chrome, xuất MIDI. Riêng tư, chạy trên GPU."
+  },
+  "actionTitle": {
+    "message": "byEar: xem hợp âm của tab này"
+  }
+}

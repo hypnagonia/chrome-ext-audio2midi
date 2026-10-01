@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>byEar</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <header class="top">
+    <span class="brand"><img src="icons/32.png" width="18" height="18" alt=""> byEar</span>
+    <button id="modelPill" class="pill" type="button" hidden></button>
+    <span class="social">
+      <a class="iconBtn" data-tip="linkedin" href="https://www.linkedin.com/in/zunso/" target="_blank" rel="noopener" aria-label="LinkedIn"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 1 1 0-4.125 2.062 2.062 0 0 1 0 4.125zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z"/></svg></a>
+      <a class="iconBtn" data-tip="github" href="https://github.com/hypnagonia" target="_blank" rel="noopener" aria-label="GitHub"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.73.5.5 5.73.5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56 0-.28-.01-1.02-.02-2-3.2.7-3.87-1.54-3.87-1.54-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.08-.12-.29-.52-1.47.11-3.06 0 0 .97-.31 3.19 1.18a11.06 11.06 0 0 1 5.8 0c2.22-1.49 3.19-1.18 3.19-1.18.63 1.59.23 2.77.11 3.06.74.8 1.19 1.82 1.19 3.08 0 4.41-2.69 5.39-5.25 5.67.41.35.77 1.05.77 2.12 0 1.53-.01 2.77-.01 3.14 0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.73 18.27.5 12 .5z"/></svg></a>
+    </span>
+    <button id="settingsBtn" class="iconBtn" type="button" data-i18n-attr="aria-label:common.settings,data-tip:common.settings">
+      <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M3 5h9.2a2.5 2.5 0 0 0 4.6 0H17a.75.75 0 0 0 0-1.5h-.2a2.5 2.5 0 0 0-4.6 0H3A.75.75 0 0 0 3 5Zm0 6h1.2a2.5 2.5 0 0 0 4.6 0H17a.75.75 0 0 0 0-1.5H8.8a2.5 2.5 0 0 0-4.6 0H3A.75.75 0 0 0 3 11Zm0 6h9.2a2.5 2.5 0 0 0 4.6 0H17a.75.75 0 0 0 0-1.5h-.2a2.5 2.5 0 0 0-4.6 0H3a.75.75 0 0 0 0 1.5Z"/></svg>
+    </button>
+  </header>
+
+  <div id="banner" class="banner" role="status" hidden>
+    <span id="bannerText"></span>
+    <button id="bannerClose" class="iconBtn small" type="button" data-i18n-attr="aria-label:common.dismiss">✕</button>
+  </div>
+
+  <!-- First run -->
+  <section id="welcome" class="screen welcome" hidden>
+    <div class="welcomeArt" aria-hidden="true">
+      <span class="chord">C<sup>maj7</sup></span>
+      <span class="chord">A<sup>m</sup></span>
+      <span class="chord">F</span>
+      <span class="chord">G<sup>7</sup></span>
+    </div>
+    <h1 data-i18n="welcome.title"></h1>
+    <p data-i18n="welcome.intro"></p>
+    <div class="terms">
+      <p data-i18n="welcome.license"><a data-slot="license" href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a></p>
+      <ul>
+        <li data-i18n="welcome.rule1"></li>
+        <li data-i18n="welcome.rule2"></li>
+      </ul>
+      <p><a href="https://huggingface.co/MuScriptor/muscriptor-small" target="_blank" rel="noopener" data-i18n="welcome.conditions"></a></p>
+    </div>
+    <button id="agreeBtn" class="cta" type="button" data-i18n="welcome.agree"></button>
+    <p class="fine" id="welcomeFine"></p>
+    <div class="signoff">
+      <span>// 2026 <a href="https://jenyadoesapps.com/" target="_blank" rel="noopener">jenyadoesapps</a></span>
+      <span class="icons">
+      <a class="iconBtn" data-tip="linkedin" href="https://www.linkedin.com/in/zunso/" target="_blank" rel="noopener" aria-label="LinkedIn"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 1 1 0-4.125 2.062 2.062 0 0 1 0 4.125zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z"/></svg></a>
+      <a class="iconBtn" data-tip="github" href="https://github.com/hypnagonia" target="_blank" rel="noopener" aria-label="GitHub"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.73.5.5 5.73.5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56 0-.28-.01-1.02-.02-2-3.2.7-3.87-1.54-3.87-1.54-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.08-.12-.29-.52-1.47.11-3.06 0 0 .97-.31 3.19 1.18a11.06 11.06 0 0 1 5.8 0c2.22-1.49 3.19-1.18 3.19-1.18.63 1.59.23 2.77.11 3.06.74.8 1.19 1.82 1.19 3.08 0 4.41-2.69 5.39-5.25 5.67.41.35.77 1.05.77 2.12 0 1.53-.01 2.77-.01 3.14 0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.73 18.27.5 12 .5z"/></svg></a>
+      </span>
+    </div>
+  </section>
+
+  <!-- Token fallback when the free mirror is unavailable -->
+  <section id="tokenScreen" class="screen" hidden>
+    <h1 data-i18n="token.title"></h1>
+    <p data-i18n="token.intro"></p>
+    <ol>
+      <li data-i18n="token.step1"><a data-slot="model" href="https://huggingface.co/MuScriptor/muscriptor-small" target="_blank" rel="noopener">MuScriptor small</a><em data-slot="agree">Agree and access repository</em></li>
+      <li data-i18n="token.step2"><a data-slot="tokens" href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener">huggingface.co/settings/tokens</a></li>
+    </ol>
+    <form id="tokenForm" class="inline">
+      <input id="tokenInput" type="password" data-i18n-attr="placeholder:token.placeholder" autocomplete="off" spellcheck="false" required>
+      <button class="cta compact" type="submit" data-i18n="token.download"></button>
+    </form>
+    <p class="fine" data-i18n="token.haveFile"><code data-slot="file">model.safetensors</code><label data-slot="load" class="link"><span data-i18n="token.load"></span><input id="modelFile" type="file" accept=".safetensors" hidden></label></p>
+  </section>
+
+  <!-- Download / GPU upload -->
+  <section id="loading" class="screen loading" hidden>
+    <div class="ring" aria-hidden="true"><svg viewBox="0 0 48 48"><circle class="track" cx="24" cy="24" r="21"/><circle id="loadArc" class="arc" cx="24" cy="24" r="21" pathLength="100"/></svg></div>
+    <h1 id="loadTitle" data-i18n="loading.ready"></h1>
+    <p id="loadDetail" class="muted"></p>
+  </section>
+
+  <!-- Live view -->
+  <main id="live" class="live" hidden>
+    <section class="hero">
+      <div id="nowChord" class="nowChord" aria-live="polite"></div>
+      <div class="heroMeta">
+        <span id="keyName" class="key"></span>
+        <span id="heroStatus" class="muted"></span>
+      </div>
+    </section>
+
+    <div class="rollWrap">
+      <canvas id="roll" class="roll" data-i18n-attr="aria-label:live.rollLabel"></canvas>
+      <p id="rollEmpty" class="rollEmpty"></p>
+      <div class="zoom" role="group" data-i18n-attr="aria-label:zoom.group">
+        <button id="zoomOut" type="button" data-i18n-attr="aria-label:zoom.out,title:zoom.outTip">−</button>
+        <span id="zoomLabel" aria-live="polite">12 s</span>
+        <button id="zoomIn" type="button" data-i18n-attr="aria-label:zoom.in,title:zoom.inTip">+</button>
+      </div>
+    </div>
+
+    <section id="transport" class="transport" hidden>
+      <button id="playBtn" class="playBtn" type="button" data-i18n-attr="aria-label:transport.play">
+        <svg class="icoPlay" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M8 5.5v13a1 1 0 0 0 1.5.86l10.6-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg>
+        <svg class="icoPause" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect fill="currentColor" x="6" y="5" width="4" height="14" rx="1.2"/><rect fill="currentColor" x="14" y="5" width="4" height="14" rx="1.2"/></svg>
+      </button>
+      <div class="switch" role="radiogroup" data-i18n-attr="aria-label:transport.what">
+        <button type="button" role="radio" data-mode="original" aria-checked="true" data-i18n="transport.original"></button>
+        <button type="button" role="radio" data-mode="midi" aria-checked="false" data-i18n="transport.midi"></button>
+      </div>
+      <span id="timeLabel" class="time">0:00 / 0:00</span>
+      <input id="scrub" class="scrub" type="range" min="0" max="1000" value="0" step="1" data-i18n-attr="aria-label:transport.position">
+    </section>
+
+    <section class="insts">
+      <div class="instsHead">
+        <h2 data-i18n="insts.title"></h2>
+        <button id="clearBtn" class="textBtn" type="button" data-i18n="insts.clear" hidden></button>
+      </div>
+      <ul id="instruments" class="instList"></ul>
+    </section>
+  </main>
+
+  <footer id="dock" class="dock" hidden>
+    <label class="dockBtn" data-i18n-attr="data-tip:dock.openFileTip">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm11-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+      <span data-i18n="dock.openFile"></span>
+      <input id="fileInput" type="file" accept="audio/*,video/*" hidden>
+    </label>
+    <div class="recWrap">
+      <button id="recBtn" class="rec" type="button" data-i18n-attr="aria-label:dock.listenAria" disabled>
+        <svg class="recRing" viewBox="0 0 76 76" aria-hidden="true"><circle class="track" cx="38" cy="38" r="35"/><circle id="chunkArc" class="arc" cx="38" cy="38" r="35" pathLength="100"/></svg>
+        <span class="recCore">
+          <svg class="icoPlay" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M8 5.5v13a1 1 0 0 0 1.5.86l10.6-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg>
+          <svg class="icoStop" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect fill="currentColor" x="5" y="5" width="14" height="14" rx="3"/></svg>
+        </span>
+      </button>
+      <span id="recLabel" class="recLabel" data-i18n="dock.listen"></span>
+    </div>
+    <button id="exportBtn" class="dockBtn" type="button" data-i18n-attr="data-tip:dock.exportTip" disabled>
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg>
+      <span data-i18n="dock.export"></span>
+    </button>
+  </footer>
+
+  <dialog id="settings" class="sheet">
+    <form method="dialog">
+      <header class="sheetHead">
+        <h2 data-i18n="common.settings"></h2>
+        <button class="iconBtn" value="cancel" data-i18n-attr="aria-label:common.close">✕</button>
+      </header>
+      <div class="sheetBody">
+        <fieldset class="seg">
+          <legend data-i18n="settings.model"></legend>
+          <label><input type="radio" name="model" value="small"><span><strong data-i18n="settings.fast"></strong><span id="fastDesc"></span></span></label>
+          <label><input type="radio" name="model" value="medium"><span><strong data-i18n="settings.accurate"></strong><span id="accurateDesc"></span></span></label>
+        </fieldset>
+        <div class="selects">
+          <label class="field"><span data-i18n="settings.language"></span>
+            <select id="optLang"></select>
+          </label>
+          <label class="field"><span data-i18n="settings.noteNames"></span>
+            <select id="optNaming"></select>
+          </label>
+        </div>
+        <details class="advanced">
+          <summary data-i18n="settings.instruments"></summary>
+          <p class="fine" data-i18n="settings.instrumentsHint"></p>
+          <div id="optInstruments" class="chips"></div>
+        </details>
+        <details class="advanced">
+          <summary data-i18n="settings.advanced"></summary>
+          <label class="toggle"><input id="optF32" type="checkbox"><span><strong data-i18n="settings.f32"></strong><span data-i18n="settings.f32Desc"></span></span></label>
+          <label class="field"><span><span data-i18n="settings.token"></span> <span class="fine" data-i18n="settings.tokenHint"></span></span>
+            <input id="optToken" type="password" placeholder="hf_…" autocomplete="off" spellcheck="false">
+          </label>
+          <button id="clearCache" class="textBtn danger" type="button" data-i18n="settings.deleteModels"></button>
+        </details>
+      </div>
+      <footer class="sheetFoot">
+        <span class="signoff">
+          <a class="iconBtn" data-tip="linkedin" href="https://www.linkedin.com/in/zunso/" target="_blank" rel="noopener" aria-label="LinkedIn"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 1 1 0-4.125 2.062 2.062 0 0 1 0 4.125zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z"/></svg></a>
+      <a class="iconBtn" data-tip="github" href="https://github.com/hypnagonia" target="_blank" rel="noopener" aria-label="GitHub"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.73.5.5 5.73.5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56 0-.28-.01-1.02-.02-2-3.2.7-3.87-1.54-3.87-1.54-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.08-.12-.29-.52-1.47.11-3.06 0 0 .97-.31 3.19 1.18a11.06 11.06 0 0 1 5.8 0c2.22-1.49 3.19-1.18 3.19-1.18.63 1.59.23 2.77.11 3.06.74.8 1.19 1.82 1.19 3.08 0 4.41-2.69 5.39-5.25 5.67.41.35.77 1.05.77 2.12 0 1.53-.01 2.77-.01 3.14 0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.73 18.27.5 12 .5z"/></svg></a>
+        </span>
+        <button class="ghost" value="cancel" data-i18n="settings.cancel"></button>
+        <button class="cta compact" value="save" data-i18n="settings.save"></button>
+      </footer>
+    </form>
+  </dialog>
+
+  <script type="module" src="sidepanel.js"></script>
+</body>
+</html>

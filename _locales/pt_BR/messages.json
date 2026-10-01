@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "byEar – Identificador de acordes e áudio para MIDI"
+  },
+  "extShortName": {
+    "message": "byEar"
+  },
+  "extDescription": {
+    "message": "Ouça uma música e veja os acordes. Acordes, notas e tom ao vivo de qualquer áudio no Chrome, em MIDI. Privado, roda na sua GPU."
+  },
+  "actionTitle": {
+    "message": "byEar: ver os acordes desta aba"
+  }
+}

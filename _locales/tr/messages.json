@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "byEar – Akor Bulucu ve Sesi MIDI'ye Çevirme"
+  },
+  "extShortName": {
+    "message": "byEar"
+  },
+  "extDescription": {
+    "message": "Şarkıyı açın, akorlarını görün. Chrome'daki her sesin akorları, notaları ve tonu canlı; MIDI olarak dışa aktarın. GPU'nuzda, gizli."
+  },
+  "actionTitle": {
+    "message": "byEar: bu sekmenin akorlarını göster"
+  }
+}

@@ -1,0 +1,75 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>GPU engine test</title>
+<pre id="log">running…</pre>
+<script type="module">
+// Serve the repo root over http and open tests/gpu-test.html?f16=1
+// Needs tests/fixtures/{small.safetensors,audio.f32,small.json}.
+import { parseSafetensors } from '../engine/safetensors.js';
+import { MelFrontend } from '../engine/mel.js';
+import { Engine } from '../engine/gpu.js';
+import { Transcriber } from '../engine/transcriber.js';
+import { SEGMENT_SAMPLES } from '../engine/vocab.js';
+
+const log = (s) => { document.getElementById('log').textContent += '\n' + s; console.log(s); };
+const f16 = new URLSearchParams(location.search).get('f16') !== '0';
+try {
+  const [wbuf, abuf, ref] = await Promise.all([
+    fetch(new URLSearchParams(location.search).get('weights') || 'fixtures/small.safetensors').then((r) => r.arrayBuffer()),
+    fetch('fixtures/audio.f32').then((r) => r.arrayBuffer()),
+    fetch(new URLSearchParams(location.search).get('ref') || 'fixtures/small.json').then((r) => r.json()),
+  ]);
+  const st = parseSafetensors(wbuf);
+  const dim = st.shape('emb.weight')[1];
+  let layers = 0;
+  while (st.has(`transformer.layers.${layers}.norm1.weight`)) layers++;
+  const cfg = { dim, num_heads: dim / 64, num_layers: layers, card: st.shape('linear.weight')[0] };
+  let t = performance.now();
+  const engine = await Engine.create(st, cfg, { f16 });
+  log(`upload ${(performance.now() - t).toFixed(0)}ms f16=${f16} gpu=${engine.adapterInfo.vendor} ${engine.adapterInfo.architecture}`);
+  const P = 'condition_provider.conditioners.self_wav.mel_spec_transform.';
+  const mel = new MelFrontend(st.getF32(P + 'spectrogram.window'), st.getF32(P + 'mel_scale.fb'));
+
+  // 1. prefill logits on chunk 0
+  const audio = new Float32Array(abuf);
+  engine.setForbidden([]);
+  const r0 = await engine.generate({ mel: mel.compute(audio.subarray(0, SEGMENT_SAMPLES)), instRows: [1], maxGen: 1, debugLogits: true });
+  let maxErr = 0, refMax = 0;
+  ref.logits.forEach((v, i) => { if (i < 1393 && Math.abs(v) < 1e30) { maxErr = Math.max(maxErr, Math.abs(v - r0.logits[i])); refMax = Math.max(refMax, Math.abs(v)); } });
+  log(`prefill logits maxAbsErr=${maxErr.toExponential(2)} (|ref|max=${refMax.toFixed(2)})`);
+
+  // 2. full transcription vs reference token stream
+  const tr = new Transcriber(engine, mel);
+  tr.setInstruments(null);
+  const n = Math.ceil(audio.length / SEGMENT_SAMPLES);
+  const toks = [];
+  let genTotal = 0, msTotal = 0;
+  for (let i = 0; i < n; i++) {
+    const chunk = new Float32Array(SEGMENT_SAMPLES);
+    chunk.set(audio.subarray(i * SEGMENT_SAMPLES, (i + 1) * SEGMENT_SAMPLES));
+    const out = await tr.processChunk(chunk, i * 5, i + 1 < n ? (i + 1) * 5 : null);
+    toks.push(['B', i * 5], ...out.tokens);
+    genTotal += out.stats.generated; msTotal += out.stats.genMs;
+    log(`chunk ${i}: ${out.stats.generated} tokens in ${out.stats.genMs.toFixed(0)}ms (mel ${out.stats.melMs.toFixed(0)}ms) eos=${out.stats.eos}`);
+  }
+  log(`throughput ${(genTotal / msTotal * 1000).toFixed(0)} tok/s`);
+  const a = JSON.stringify(toks), b = JSON.stringify(ref.tokens);
+  if (a === b) log(`TOKENS MATCH (${toks.length})`);
+  else {
+    const i = toks.findIndex((x, k) => JSON.stringify(x) !== JSON.stringify(ref.tokens[k]));
+    log(`TOKENS DIFFER at ${i}/${ref.tokens.length}: got ${JSON.stringify(toks.slice(i, i + 5))} ref ${JSON.stringify(ref.tokens.slice(i, i + 5))}`);
+  }
+  // 3. backfill path: one chunk on its own; every start must get an end inside the chunk.
+  const c1 = new Float32Array(SEGMENT_SAMPLES);
+  c1.set(audio.subarray(SEGMENT_SAMPLES, 2 * SEGMENT_SAMPLES));
+  const iso = await tr.isolated(c1, 5, 10);
+  const starts = iso.filter((e) => e.type === 'start');
+  const ends = new Map(iso.filter((e) => e.type === 'end').map((e) => [e.index, e.time]));
+  const ok = starts.length > 0 && starts.every((e) => ends.has(e.index) && ends.get(e.index) <= 10 + 1e-6 && e.time >= 5);
+  log(`backfill chunk: ${starts.length} notes, all closed within [5, 10]: ${ok}`);
+  window.testDone = true;
+} catch (e) {
+  log('ERROR ' + (e.stack || e));
+  window.testDone = true;
+}
+</script>

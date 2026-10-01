@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "byEar – Cari Chord & Kunci Gitar Lagu, Ubah Audio ke MIDI"
+  },
+  "extShortName": {
+    "message": "byEar"
+  },
+  "extDescription": {
+    "message": "Dengar lagu, lihat chord-nya. Chord, not, dan nada dasar live dari audio apa pun di Chrome, ekspor MIDI. Privat, jalan di GPU."
+  },
+  "actionTitle": {
+    "message": "byEar: lihat chord di tab ini"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "byEar – コード検出・耳コピ＆オーディオMIDI変換"
+  },
+  "extShortName": {
+    "message": "byEar"
+  },
+  "extDescription": {
+    "message": "曲を聴けばコードが見える。Chromeで流れる音声のコード・音符・キーをリアルタイム表示し、MIDIで書き出し。GPUで動き、音声は外部に送信しません。"
+  },
+  "actionTitle": {
+    "message": "byEar：このタブのコードを見る"
+  }
+}

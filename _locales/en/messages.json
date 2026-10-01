@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "byEar – Chord Finder & Audio to MIDI"
+  },
+  "extShortName": {
+    "message": "byEar"
+  },
+  "extDescription": {
+    "message": "Hear a song, see its chords. Live chords, notes and key for any audio in Chrome, exported as MIDI. Private, runs on your GPU."
+  },
+  "actionTitle": {
+    "message": "byEar: see the chords of this tab"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "byEar – Akkorde erkennen & Audio zu MIDI"
+  },
+  "extShortName": {
+    "message": "byEar"
+  },
+  "extDescription": {
+    "message": "Song hören, Akkorde sehen: Akkorde, Noten und Tonart live für jedes Audio in Chrome, Export als MIDI. Privat, auf deiner GPU."
+  },
+  "actionTitle": {
+    "message": "byEar: Akkorde dieses Tabs anzeigen"
+  }
+}

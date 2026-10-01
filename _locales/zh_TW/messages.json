@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "byEar – 抓和弦・和弦辨識 & 音訊轉 MIDI"
+  },
+  "extShortName": {
+    "message": "byEar"
+  },
+  "extDescription": {
+    "message": "聽歌就能看到和弦。即時顯示 Chrome 中任何音訊的和弦、音符與調性，並可匯出 MIDI。在你的 GPU 上執行，保護隱私。"
+  },
+  "actionTitle": {
+    "message": "byEar：查看這個分頁的和弦"
+  }
+}

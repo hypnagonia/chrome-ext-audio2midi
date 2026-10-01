@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "byEar – 코드 따기·코드 찾기 & 오디오 MIDI 변환"
+  },
+  "extShortName": {
+    "message": "byEar"
+  },
+  "extDescription": {
+    "message": "노래를 들으면 코드가 보입니다. Chrome의 모든 오디오에서 코드·음표·키를 실시간으로 보고 MIDI로 내보내세요. 내 GPU에서 실행되어 안전합니다."
+  },
+  "actionTitle": {
+    "message": "byEar: 이 탭의 코드 보기"
+  }
+}

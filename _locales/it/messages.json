@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "byEar – Trova accordi e converti audio in MIDI"
+  },
+  "extShortName": {
+    "message": "byEar"
+  },
+  "extDescription": {
+    "message": "Ascolta un brano, vedi i suoi accordi. Accordi, note e tonalità dal vivo di ogni audio in Chrome, in MIDI. Privato, sulla tua GPU."
+  },
+  "actionTitle": {
+    "message": "byEar: vedi gli accordi di questa scheda"
+  }
+}

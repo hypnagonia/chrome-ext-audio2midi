@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "byEar – Wykrywanie akordów i audio na MIDI"
+  },
+  "extShortName": {
+    "message": "byEar"
+  },
+  "extDescription": {
+    "message": "Posłuchaj utworu, zobacz akordy. Akordy, nuty i tonacja na żywo z każdego audio w Chrome, eksport do MIDI. Prywatnie, na twoim GPU."
+  },
+  "actionTitle": {
+    "message": "byEar: pokaż akordy w tej karcie"
+  }
+}

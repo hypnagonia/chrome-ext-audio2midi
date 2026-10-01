@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "byEar – Подбор аккордов и аудио в MIDI"
+  },
+  "extShortName": {
+    "message": "byEar"
+  },
+  "extDescription": {
+    "message": "Включите песню — увидите аккорды. Аккорды, ноты и тональность любого звука в Chrome онлайн, экспорт в MIDI. Приватно, на вашем GPU."
+  },
+  "actionTitle": {
+    "message": "byEar: показать аккорды этой вкладки"
+  }
+}

@@ -1,0 +1,48 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Decode benchmark</title>
+<pre id="log">running…</pre>
+<script type="module">
+// Per-kernel-type cost of one decode step: time 200 steps of each op subset.
+import { parseSafetensors } from '../engine/safetensors.js';
+import { MelFrontend } from '../engine/mel.js';
+import { Engine } from '../engine/gpu.js';
+import { SEGMENT_SAMPLES } from '../engine/vocab.js';
+const log = (s) => { document.getElementById('log').textContent += '\n' + s; };
+const q = new URLSearchParams(location.search);
+try {
+  const st = parseSafetensors(await (await fetch(q.get('weights') || 'fixtures/small-fp16.safetensors')).arrayBuffer());
+  const dim = st.shape('emb.weight')[1];
+  let L = 0; while (st.has(`transformer.layers.${L}.norm1.weight`)) L++;
+  const e = await Engine.create(st, { dim, num_heads: dim / 64, num_layers: L, card: st.shape('linear.weight')[0] }, { f16: true });
+  const P = 'condition_provider.conditioners.self_wav.mel_spec_transform.';
+  const mel = new MelFrontend(st.getF32(P + 'spectrogram.window'), st.getF32(P + 'mel_scale.fb'));
+  const audio = new Float32Array(await (await fetch('fixtures/audio.f32')).arrayBuffer());
+  e.setForbidden([]);
+  // Prefill once so the KV cache holds ~540 rows, like a real chunk.
+  await e.generate({ mel: mel.compute(audio.subarray(0, SEGMENT_SAMPLES)), instRows: [1], maxGen: 1 });
+  const time = async (ops, steps = 200) => {
+    const enc = e.device.createCommandEncoder();
+    const pass = enc.beginComputePass();
+    for (let s = 0; s < steps; s++) e._encode(pass, ops);
+    pass.end();
+    const t0 = performance.now();
+    e.device.queue.submit([enc.finish()]);
+    await e.device.queue.onSubmittedWorkDone();
+    return (performance.now() - t0) / steps;
+  };
+  const all = e.decodeOps;
+  const by = (name) => all.filter((o) => o.pipeline === e.pl[name]);
+  await time(all, 20); // warm up
+  const total = await time(all);
+  log(`full step: ${total.toFixed(2)} ms (${all.length} dispatches) → ${(1000 / total).toFixed(0)} tok/s`);
+  for (const name of ['matvec', 'attentionSplit', 'attentionCombine', 'attention', 'layernorm', 'kvwrite', 'addpos', 'embed', 'argmax']) {
+    const ops = by(name);
+    if (ops.length) log(`  ${name.padEnd(10)} ×${String(ops.length).padStart(3)}  ${(await time(ops)).toFixed(2)} ms`);
+  }
+  const empty = e.device.createComputePipeline({ layout: 'auto', compute: { module: e.device.createShaderModule({ code: '@compute @workgroup_size(1) fn main() {}' }), entryPoint: 'main' } });
+  const noop = Array.from({ length: all.length }, () => ({ pipeline: empty, bindGroup: e.device.createBindGroup({ layout: empty.getBindGroupLayout(0), entries: [] }), dispatch: [1] }));
+  log(`  empty dispatches ×${all.length}: ${(await time(noop)).toFixed(2)} ms (pure overhead)`);
+} catch (err) { log('ERROR ' + (err.stack || err)); }
+window.testDone = true;
+</script>

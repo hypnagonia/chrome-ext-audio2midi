@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "byEar – कॉर्ड फाइंडर: गाने के chords पहचानें, ऑडियो से MIDI"
+  },
+  "extShortName": {
+    "message": "byEar"
+  },
+  "extDescription": {
+    "message": "गाना सुनिए, कॉर्ड्स देखिए। Chrome में किसी भी ऑडियो के लाइव कॉर्ड्स, नोट्स और स्केल, MIDI एक्सपोर्ट के साथ। प्राइवेट, आपके GPU पर।"
+  },
+  "actionTitle": {
+    "message": "byEar: इस टैब के कॉर्ड्स देखें"
+  }
+}
