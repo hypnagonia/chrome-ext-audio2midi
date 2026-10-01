@@ -219,20 +219,18 @@ export class PianoRoll {
     ctx.fillRect(0, CHORD_LANE - 1, w, 1);
     ctx.fillRect(0, bottom, w, 1);
     ctx.textBaseline = 'middle';
-    ctx.font = `bold 14px ${v['--chord-font']}`;
+    const chordFont = `bold 14px ${v['--chord-font']}`;
     for (const seg of s.chords) {
       if (seg.end < t0 || seg.start > t1) continue;
       const sx = Math.max(x(seg.start), 0);
       ctx.fillStyle = v['--rule-strong'];
       if (x(seg.start) >= 0) ctx.fillRect(x(seg.start), 4, 1, CHORD_LANE - 8);
-      if (x(seg.end) - sx < 24) continue; // too narrow to label legibly
+      // Label only when the whole name fits: a clipped "Gma" reads as a different chord.
+      const name = chordName(seg.chord, s.flats);
+      if (this._width(name, chordFont) + 8 > Math.min(x(seg.end), w) - sx) continue;
+      ctx.font = chordFont;
       ctx.fillStyle = v['--ink'];
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(sx, 0, x(seg.end) - sx, CHORD_LANE);
-      ctx.clip();
-      ctx.fillText(chordName(seg.chord, s.flats), sx + 4, CHORD_LANE / 2 + 1);
-      ctx.restore();
+      ctx.fillText(name, sx + 4, CHORD_LANE / 2 + 1);
     }
 
     this.t0 = t0; // for pointer scrubbing

@@ -31,7 +31,7 @@ ws.addEventListener('message', (m) => {
 const send = (method, params = {}) => new Promise((r) => { const i = ++id; waiters.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
 await send('Runtime.enable');
 if (process.env.WIDTH) {
-  await send('Emulation.setDeviceMetricsOverride', { width: +process.env.WIDTH, height: +(process.env.HEIGHT || 900), deviceScaleFactor: 2, mobile: false });
+  await send('Emulation.setDeviceMetricsOverride', { width: +process.env.WIDTH, height: +(process.env.HEIGHT || 900), deviceScaleFactor: +(process.env.DPR || 2), mobile: false });
 }
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: process.env.DARK ? 'dark' : 'light' }] });
 if (process.env.INIT) await send('Page.enable'), await send('Page.addScriptToEvaluateOnNewDocument', { source: process.env.INIT });

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>byEar store screenshot</title>
+<style>
+  @font-face { font-family: 'ByEar Mono'; src: local('Courier New'), local('CourierNewPSMT'); }
+  @font-face { font-family: 'ByEar Mono'; font-weight: bold; src: local('Courier New Bold'), local('CourierNewPS-BoldMT'); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1280px; height: 800px; overflow: hidden; background: #111; color: #eee; font-family: 'ByEar Mono', 'Courier New', monospace; }
+  .stage { display: grid; grid-template-columns: 1fr 500px; height: 800px; }
+  .copy { padding: 0 56px 0 80px; display: flex; flex-direction: column; justify-content: center; }
+  .brand { display: flex; align-items: center; gap: 14px; font-weight: bold; font-size: 24px; letter-spacing: -0.02em; margin-bottom: 64px; }
+  .brand img { width: 36px; height: 36px; border-radius: 8px; }
+  h1 { font-size: 46px; line-height: 1.12; letter-spacing: -0.035em; font-weight: bold; margin-bottom: 26px; }
+  p { color: #aaa; font-size: 19px; line-height: 1.65; max-width: 30em; }
+  ul { list-style: none; margin-top: 30px; color: #8a8a8a; font-size: 16px; line-height: 2; }
+  ul li::before { content: "// "; color: #555; }
+  .sign { position: absolute; left: 80px; bottom: 44px; color: #555; font-size: 14px; }
+  .panel { border-left: 1px solid #262626; position: relative; }
+  /* The real panel at 400x640 CSS px, scaled 1.25x so its text reads well in the store. */
+  iframe { border: 0; width: 400px; height: 640px; display: block; transform: scale(1.25); transform-origin: 0 0; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="copy">
+    <div class="brand"><img src="../../icons/128.png" alt=""> byEar</div>
+    <h1 id="title"></h1>
+    <p id="sub"></p>
+    <ul id="points"></ul>
+  </div>
+  <div class="panel"><iframe id="panel"></iframe></div>
+</div>
+<div class="sign">// jenyadoesapps</div>
+<script>
+  // ?title=&sub=&points=a|b|c&state=<json for the panel's settings>&panel=<query for sidepanel.html>
+  const q = new URLSearchParams(location.search);
+  document.getElementById('title').textContent = q.get('title') || '';
+  document.getElementById('sub').textContent = q.get('sub') || '';
+  for (const p of (q.get('points') || '').split('|').filter(Boolean)) {
+    const li = document.createElement('li');
+    li.textContent = p;
+    document.getElementById('points').append(li);
+  }
+  localStorage.setItem('a2m', q.get('state') || '{}');
+  const frame = document.getElementById('panel');
+  // Optional shorter piano roll, so a short panel still shows the instrument rows.
+  if (q.get('rollh')) {
+    frame.addEventListener('load', () => {
+      const st = frame.contentDocument.createElement('style');
+      st.textContent = `.roll { height: ${Number(q.get('rollh'))}px !important; }`;
+      frame.contentDocument.head.append(st);
+    });
+  }
+  frame.src = `../../sidepanel.html${q.get('panel') ? '?' + q.get('panel') : ''}`;
+  window.panel = () => document.getElementById('panel').contentWindow;
+</script>
+</body>
+</html>
