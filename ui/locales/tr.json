@@ -44,6 +44,10 @@
   "live.emptyDev": "Denemek için bir ses dosyası açın.",
   "live.thisTab": "bu sekme",
   "live.rollLabel": "Çıkarılan notaların piyano rulosu",
+
+  "note.hint": "Dinlemek için tıklayın. Alt+↑/↓ perdeyi değiştirir, Delete siler.",
+  "note.hintTab": "Dinlemek için tıklayın. Alt+↑/↓ perdeyi, ↑/↓ teli değiştirir, Delete siler.",
+
   "live.jump": "canlı",
   "live.jumpTip": "Canlıya dön",
 

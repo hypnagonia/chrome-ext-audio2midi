@@ -44,6 +44,10 @@
   "live.emptyDev": "오디오 파일을 열어 사용해 보세요.",
   "live.thisTab": "이 탭",
   "live.rollLabel": "채보된 음표의 피아노 롤",
+
+  "note.hint": "클릭하면 들을 수 있어요. Alt+↑/↓로 음높이 변경, Delete로 삭제.",
+  "note.hintTab": "클릭하면 들을 수 있어요. Alt+↑/↓ 음높이, ↑/↓ 다른 줄로 이동, Delete 삭제.",
+
   "live.jump": "라이브",
   "live.jumpTip": "라이브로 돌아가기",
 

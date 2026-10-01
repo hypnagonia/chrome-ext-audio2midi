@@ -122,6 +122,30 @@ export class Fingering {
     return part;
   }
 
+  /** Drop a note's position (its pitch was edited): it gets fingered again. */
+  forget(note, instrument) {
+    this.parts.get(instrument)?.pos.delete(note);
+  }
+
+  /**
+   * Put a note on the next string in `dir` (+1 = higher string) that can play it and isn't
+   * used by another note struck at the same time. Returns the new position, or null.
+   */
+  moveString(note, instrument, list, dir, tuning = tuningFor(instrument)) {
+    const { pos } = this._part(instrument, tuning);
+    const cur = pos.get(note);
+    const taken = new Set(list.filter((m) => m !== note && Math.abs(m.start - note.start) < TOGETHER)
+      .map((m) => pos.get(m)?.string).filter((x) => x != null));
+    for (let st = (cur?.string ?? (dir > 0 ? -1 : tuning.length)) + dir; st >= 0 && st < tuning.length; st += dir) {
+      const fret = note.pitch - tuning[st];
+      if (fret < 0 || fret > MAX_FRET || taken.has(st)) continue;
+      const p = { string: st, fret };
+      pos.set(note, p);
+      return p;
+    }
+    return null;
+  }
+
   /** Position of a note assigned earlier, or undefined. */
   get(note, instrument) {
     return this.parts.get(instrument)?.pos.get(note);
@@ -192,6 +216,12 @@ export class Fingering {
       const shape = cands[i][j]?.shape;
       groups[i].forEach((n, k) => part.pos.set(n, shape?.[k] ?? null));
       j = backs[i][j].back;
+    }
+    // Strings the user chose by hand win.
+    for (const n of list) {
+      if (n.forcedString == null) continue;
+      const fret = n.pitch - tuning[n.forcedString];
+      if (fret >= 0 && fret <= MAX_FRET) part.pos.set(n, { string: n.forcedString, fret });
     }
   }
 }

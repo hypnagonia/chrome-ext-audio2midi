@@ -44,6 +44,10 @@
   "live.emptyDev": "Abra um arquivo de áudio para experimentar.",
   "live.thisTab": "esta aba",
   "live.rollLabel": "Piano roll das notas transcritas",
+
+  "note.hint": "Clique para ouvir. Alt+↑/↓ muda a altura, Delete apaga.",
+  "note.hintTab": "Clique para ouvir. Alt+↑/↓ muda a altura, ↑/↓ troca de corda, Delete apaga.",
+
   "live.jump": "ao vivo",
   "live.jumpTip": "Voltar ao ao vivo",
 

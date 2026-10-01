@@ -44,6 +44,10 @@
   "live.emptyDev": "Buka file audio untuk mencobanya.",
   "live.thisTab": "tab ini",
   "live.rollLabel": "Piano roll dari not hasil transkripsi",
+
+  "note.hint": "Klik untuk mendengar. Alt+↑/↓ mengubah nada, Delete menghapus.",
+  "note.hintTab": "Klik untuk mendengar. Alt+↑/↓ mengubah nada, ↑/↓ pindah senar, Delete menghapus.",
+
   "live.jump": "live",
   "live.jumpTip": "Kembali ke live",
 

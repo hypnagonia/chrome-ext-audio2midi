@@ -33,7 +33,7 @@ const FAMILY = {
 export class Player {
   constructor() {
     this.ctx = null;
-    this.mode = 'original'; // or 'midi'
+    this.mode = 'midi'; // or 'original'
     this.playing = false;
     this.pos = 0; // timeline seconds while paused
     this.duration = 0;
@@ -47,6 +47,30 @@ export class Player {
     this.speed = 1; // 1, 0.75, 0.5
     this.el = null; // <audio> for slowed-down original audio (keeps pitch)
     this.elActive = false;
+  }
+
+  _ensureCtx() {
+    if (this.ctx) return;
+    this.ctx = new AudioContext({ latencyHint: 'playback' });
+    const comp = this.ctx.createDynamicsCompressor();
+    this.master = this.ctx.createGain();
+    this.master.connect(comp).connect(this.ctx.destination);
+    this.noise = this._noiseBuffer();
+  }
+
+  /** Sound one note now (click on a note), with its instrument's voice. */
+  async preview(note) {
+    this._ensureCtx();
+    await this.ctx.resume();
+    const bus = this.ctx.createGain();
+    bus.gain.value = 0.25;
+    bus.connect(this.master);
+    const keep = this.bus;
+    this.bus = bus;
+    const length = Math.min(1.2, Math.max(0.3, (note.end ?? note.start + 0.5) - note.start));
+    this._note(note, this.ctx.currentTime + 0.01, length);
+    this.bus = keep;
+    setTimeout(() => bus.disconnect(), 3000);
   }
 
   async setSpeed(speed) {
@@ -106,13 +130,7 @@ export class Player {
     if (this.playing) return;
     const gen = ++this.gen;
     if (this.pos >= this.duration - 0.05) this.pos = 0;
-    if (!this.ctx) {
-      this.ctx = new AudioContext({ latencyHint: 'playback' });
-      const comp = this.ctx.createDynamicsCompressor();
-      this.master = this.ctx.createGain();
-      this.master.connect(comp).connect(this.ctx.destination);
-      this.noise = this._noiseBuffer();
-    }
+    this._ensureCtx();
     await this.ctx.resume();
     if (gen !== this.gen || this.playing) return; // paused or replayed while resuming
     if (this.mode === 'original' && this.speed !== 1 && this.segments.length) {

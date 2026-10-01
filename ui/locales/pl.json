@@ -44,6 +44,10 @@
   "live.emptyDev": "Otwórz plik audio, żeby wypróbować.",
   "live.thisTab": "ta karta",
   "live.rollLabel": "Piano roll z transkrybowanymi nutami",
+
+  "note.hint": "Kliknij, by usłyszeć. Alt+↑/↓ zmienia wysokość, Delete usuwa.",
+  "note.hintTab": "Kliknij, by usłyszeć. Alt+↑/↓ zmienia wysokość, ↑/↓ przenosi na inną strunę, Delete usuwa.",
+
   "live.jump": "na żywo",
   "live.jumpTip": "Wróć na żywo",
 

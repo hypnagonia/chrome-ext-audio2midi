@@ -44,6 +44,10 @@
   "live.emptyDev": "Open an audio file to try it out.",
   "live.thisTab": "this tab",
   "live.rollLabel": "Piano roll of transcribed notes",
+
+  "note.hint": "Click to hear it. Alt+↑/↓ changes the pitch, Delete removes it.",
+  "note.hintTab": "Click to hear it. Alt+↑/↓ changes the pitch, ↑/↓ moves it to another string, Delete removes it.",
+
   "live.jump": "live",
   "live.jumpTip": "Back to live",
 

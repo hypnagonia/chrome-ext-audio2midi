@@ -44,6 +44,10 @@
   "live.emptyDev": "Öffne eine Audiodatei, um es auszuprobieren.",
   "live.thisTab": "dieser tab",
   "live.rollLabel": "Pianorolle der transkribierten Noten",
+
+  "note.hint": "Klicken zum Anhören. Alt+↑/↓ ändert die Tonhöhe, Entf löscht.",
+  "note.hintTab": "Klicken zum Anhören. Alt+↑/↓ ändert die Tonhöhe, ↑/↓ wechselt die Saite, Entf löscht.",
+
   "live.jump": "live",
   "live.jumpTip": "Zurück zu live",
 

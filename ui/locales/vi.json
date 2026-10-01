@@ -44,6 +44,10 @@
   "live.emptyDev": "Mở một tệp âm thanh để thử.",
   "live.thisTab": "tab này",
   "live.rollLabel": "Piano roll các nốt đã chép",
+
+  "note.hint": "Nhấp để nghe. Alt+↑/↓ đổi cao độ, Delete để xóa.",
+  "note.hintTab": "Nhấp để nghe. Alt+↑/↓ đổi cao độ, ↑/↓ đổi dây, Delete để xóa.",
+
   "live.jump": "trực tiếp",
   "live.jumpTip": "Về trực tiếp",
 

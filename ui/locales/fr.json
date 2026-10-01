@@ -44,6 +44,10 @@
   "live.emptyDev": "Ouvrez un fichier audio pour essayer.",
   "live.thisTab": "cet onglet",
   "live.rollLabel": "Piano roll des notes transcrites",
+
+  "note.hint": "Cliquez pour l'entendre. Alt+↑/↓ change la hauteur, Suppr l'efface.",
+  "note.hintTab": "Cliquez pour l'entendre. Alt+↑/↓ change la hauteur, ↑/↓ la change de corde, Suppr l'efface.",
+
   "live.jump": "direct",
   "live.jumpTip": "Revenir au direct",
 

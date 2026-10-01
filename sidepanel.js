@@ -207,7 +207,76 @@ const session = {
   byInst: new Map(), // instrument -> notes, for the instrument rows
   refine: null, // {parts:Set, runs, chunks, done, notes:Map} while re-transcribing after stop
   ignoreParts: new Set(), // sessions whose late results must be dropped (cancelled refine)
+  selected: null, // the note clicked last (Alt+arrows change its pitch)
+  edits: [], // user corrections, re-applied when refine replaces the notes
 };
+
+// ---------------------------------------------------------------- note editing
+
+function selectNote(n) {
+  session.selected = n;
+  roll.dirty = true;
+  if (n) player.preview(n);
+}
+
+function afterEdit() {
+  roll.dirty = true;
+  if (reviewing()) enterReview(); else analyse();
+  renderPanel();
+}
+
+/** Move the selected note by `semis` semitones (Alt+↑/↓, with Shift an octave). */
+function transposeSelected(semis) {
+  const n = session.selected;
+  if (!n || n.instrument === 'drums') return;
+  const to = Math.max(0, Math.min(127, n.pitch + semis));
+  if (to === n.pitch) return;
+  session.edits.push({ instrument: n.instrument, start: n.start, from: n.pitch, to });
+  roll.fingering.forget(n, n.instrument);
+  n.pitch = to;
+  player.preview(n);
+  afterEdit();
+}
+
+/** Tab view: move the selected note to the next string up/down that can play it. */
+function moveSelectedString(dir) {
+  const n = session.selected;
+  if (!n || n.instrument === 'drums') return;
+  const pos = roll.moveString(n, session.byInst.get(n.instrument), dir);
+  if (!pos) return;
+  n.forcedString = pos.string; // the whole-song fingering keeps it
+  session.edits.push({ instrument: n.instrument, start: n.start, from: n.pitch, to: n.pitch, string: pos.string });
+  player.preview(n);
+  roll.dirty = true;
+}
+
+function deleteSelected() {
+  const n = session.selected;
+  if (!n) return;
+  for (const [k, v] of session.notes) if (v === n) { session.notes.delete(k); break; }
+  const list = session.byInst.get(n.instrument);
+  list?.splice(list.indexOf(n), 1);
+  if (list && !list.length) session.byInst.delete(n.instrument);
+  session.edits.push({ instrument: n.instrument, start: n.start, from: n.pitch, deleted: true });
+  session.selected = null;
+  afterEdit();
+}
+
+/** After refine swaps the notes in, apply the user's corrections to the new notes. */
+function reapplyEdits() {
+  for (const e of session.edits) {
+    const list = session.byInst.get(e.instrument) || [];
+    const n = list.find((m) => m.pitch === e.from && Math.abs(m.start - e.start) < 0.06);
+    if (!n) continue;
+    if (e.deleted) {
+      for (const [k, v] of session.notes) if (v === n) { session.notes.delete(k); break; }
+      list.splice(list.indexOf(n), 1);
+    } else {
+      n.pitch = e.to;
+      if (e.string != null) n.forcedString = e.string; // the whole-song fingering keeps it
+    }
+  }
+}
 
 // ---------------------------------------------------------------- hints & refine
 
@@ -273,6 +342,8 @@ function onRefineEvents(msg) {
     session.notes = new Map();
     session.byInst.clear();
     for (const [k, n] of r.notes) addNote(k, n);
+    session.selected = null;
+    reapplyEdits(); // keep the user's corrections
     roll.refinger(session.byInst); // whole-song fingering now that every note is known
     roll.dirty = true;
     enterReview();
@@ -562,6 +633,7 @@ function frame() {
       byInst: session.byInst,
       label: instrumentLabel,
       chunk: CHUNK_SEC,
+      selected: session.selected,
       chords: session.ensemble,
       flats: session.key?.useFlats ?? false,
       playhead: review ? t : null,
@@ -685,15 +757,10 @@ async function startCapture(makeSource, label, cleanup, begin) {
       for (const block of c.preroll.splice(0)) append(block);
       renderPanel();
     } else if (c.quietFor >= SILENCE_SEC) {
+      // Pause on silence. The chunk in progress is kept and keeps filling when the sound
+      // returns, so no padded silence ever lands in the middle of the music. (The quiet we
+      // waited through stays: splicing music edge to edge makes the model miss notes.)
       c.waiting = true;
-      if (c.fill > 0.5 * rate) {
-        c.flush(false); // transcribe what was heard; the zero padding becomes timeline
-        c.captured = c.index * chunkLen;
-      } else {
-        c.captured -= c.fill; // drop a sliver of near-silence
-        c.chunk.fill(0);
-        c.fill = 0;
-      }
       renderPanel();
       return;
     }
@@ -928,6 +995,8 @@ $('clearBtn').addEventListener('click', () => {
   session.muted.clear();
   session.solo.clear();
   session.order = [];
+  session.selected = null;
+  session.edits = [];
   session.viewEnd = null;
   roll.pitchScroll = 0;
   session.chords.clear();
@@ -1039,7 +1108,7 @@ function updateTip() {
   const e = { offsetX: pointer.x, offsetY: pointer.y };
   const flats = session.key?.useFlats ?? false;
   const name = n.instrument === 'drums' ? drumName(n.pitch) : noteName(n.pitch, flats);
-  tip.innerHTML = `<strong>${esc(name)}</strong><span>${esc(instrumentLabel(n.instrument))}, ${fmtTime(n.start)}</span>`;
+  tip.innerHTML = `<strong>${esc(name)}</strong><span>${esc(instrumentLabel(n.instrument))}, ${fmtTime(n.start)}</span><em>${esc(t(roll.mode === 'tab' ? 'note.hintTab' : 'note.hint'))}</em>`;
   tip.hidden = false;
   const r = $('roll').getBoundingClientRect();
   const left = Math.min(e.offsetX + 12, r.width - tip.offsetWidth - 4);
@@ -1059,9 +1128,13 @@ $('roll').addEventListener('pointerleave', () => {
 // Click the piano roll to move the playhead there; drag to scrub.
 let drag = null;
 $('roll').addEventListener('pointerdown', (e) => {
-  if (!reviewing()) return;
-  drag = { x: e.clientX, t: player.time, was: player.playing, moved: false };
-  $('roll').setPointerCapture(e.pointerId);
+  const hit = roll.noteAt(e.offsetX, e.offsetY);
+  if (!reviewing()) {
+    selectNote(hit); // live: click a note to hear it
+    return;
+  }
+  drag = { x: e.clientX, t: player.time, was: player.playing, moved: false, hit };
+  try { $('roll').setPointerCapture(e.pointerId); } catch { /* synthetic pointer */ }
 });
 $('roll').addEventListener('pointermove', (e) => {
   if (!drag) return;
@@ -1076,21 +1149,48 @@ $('roll').addEventListener('pointermove', (e) => {
 });
 $('roll').addEventListener('pointerup', async (e) => {
   if (!drag) return;
-  const { moved, was } = drag;
+  const { moved, was, hit } = drag;
   drag = null;
   if (moved) {
     if (was) await player.play();
+  } else if (hit) {
+    selectNote(hit); // a note: hear it (and select it for editing)
   } else {
+    selectNote(null);
     const r = $('roll').getBoundingClientRect();
     player.seek(roll.t0 + ((e.clientX - r.left) / r.width) * roll.window); // keeps playing if it was
   }
   renderPanel();
 });
 $('roll').addEventListener('pointercancel', () => { drag = null; });
+/** Whether a key event comes from inside elements matching `selector` (events on document: no). */
+const targetIn = (e, selector) => e.target instanceof Element && !!e.target.closest(selector);
+
+// Selected note: Alt+↑/↓ semitone (with Shift an octave), Delete removes it, Esc deselects.
+document.addEventListener('keydown', (e) => {
+  if (!session.selected || $('live').hidden || $('settings').open) return;
+  if (targetIn(e, 'input[type=text], input[type=password], textarea, select')) return;
+  if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    e.preventDefault();
+    e.stopPropagation();
+    transposeSelected((e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 12 : 1));
+  } else if (roll.mode === 'tab' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    // Tablature: same pitch, another string (up = higher string, as drawn).
+    e.preventDefault();
+    e.stopPropagation();
+    moveSelectedString(e.key === 'ArrowUp' ? 1 : -1);
+  } else if (e.key === 'Delete' || e.key === 'Backspace') {
+    e.preventDefault();
+    deleteSelected();
+  } else if (e.key === 'Escape') {
+    selectNote(null);
+  }
+}, true);
+
 // Space is always play/stop, wherever focus is (except while typing).
 document.addEventListener('keydown', (e) => {
   if (e.key !== ' ' || $('live').hidden || $('settings').open) return;
-  if (e.target.closest('input[type=text], input[type=password], textarea, select')) return;
+  if (targetIn(e, 'input[type=text], input[type=password], textarea, select')) return;
   e.preventDefault();
   e.stopPropagation();
   if (e.repeat) return;
@@ -1101,7 +1201,7 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('keyup', (e) => { if (e.key === ' ' && !$('live').hidden) e.preventDefault(); }, true);
 document.addEventListener('keydown', (e) => {
   if (!reviewing() || $('live').hidden || $('settings').open) return;
-  if (e.target.closest('input, button, select, textarea, a, summary, label, dialog, [role=switch], canvas')) return;
+  if (targetIn(e, 'input, button, select, textarea, a, summary, label, dialog, [role=switch], canvas')) return;
   const dir = { ArrowLeft: -5, ArrowRight: 5 }[e.key];
   if (!dir) return;
   e.preventDefault();
@@ -1187,6 +1287,9 @@ $('clearCache').addEventListener('click', () => worker.postMessage({ type: 'clea
 // Test hook (dev page only, never in the extension): read the timeline state.
 if (!isExtension) {
   window.__byearTime = () => player.time;
+  window.__byearGaps = () => { const st = [...session.notes.values()].filter((n) => n.instrument !== 'drums').map((n) => n.start).sort((a, b) => a - b); let g = 0, at = 0; for (let i = 1; i < st.length; i++) if (st[i] - st[i - 1] > g) { g = st[i] - st[i - 1]; at = st[i - 1]; } return { longestGap: +g.toFixed(2), at: +at.toFixed(2), duration: player.duration }; };
+  window.__byearSel = () => session.selected && { pitch: session.selected.pitch, instrument: session.selected.instrument };
+  window.__byearPos = () => session.selected && roll.fingering.get(session.selected, session.selected.instrument);
   window.__byear = () => ({
     now: session.now, done: session.done, viewEnd: session.viewEnd, t0: roll.t0, mode: roll.mode, window: roll.window, notes: session.notes.size,
     first: [...session.notes.values()].sort((a, b) => a.start - b.start).slice(0, 6).map((n) => [+n.start.toFixed(2), n.pitch, n.instrument]),

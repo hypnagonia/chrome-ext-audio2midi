@@ -44,6 +44,10 @@
   "live.emptyDev": "打开一个音频文件试试看。",
   "live.thisTab": "此标签页",
   "live.rollLabel": "转录音符的钢琴卷帘",
+
+  "note.hint": "点击试听。Alt+↑/↓ 改变音高，Delete 删除。",
+  "note.hintTab": "点击试听。Alt+↑/↓ 改变音高，↑/↓ 换弦，Delete 删除。",
+
   "live.jump": "实时",
   "live.jumpTip": "回到实时",
 

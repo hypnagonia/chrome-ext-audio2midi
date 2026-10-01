@@ -35,6 +35,7 @@ Requires Chrome 116 or newer with WebGPU (any recent Mac, Windows or ChromeOS la
 - In **settings** you can switch to the **accurate** model, which catches more, especially vocals in a busy mix. It needs a stronger GPU.
 - Tell byEar which instruments to listen for (settings → only listen for certain instruments) when you know the line-up.
 - **M** mutes a part, **S** solos it (several at once is fine). The big chord then follows what you hear.
+- **Click a note** to hear it. **Alt + ↑/↓** moves it a semitone (with Shift an octave), **Delete** removes it. In tab view, **↑/↓** moves it to another string. Your fixes go into the chords and the MIDI export.
 
 ## For developers
 

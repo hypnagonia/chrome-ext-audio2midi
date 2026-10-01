@@ -70,6 +70,7 @@ export class PianoRoll {
       this.onPan((px * scale / (this.w || 1)) * this.window);
     }, { passive: false });
     canvas.addEventListener('keydown', (e) => {
+      if (e.altKey) return; // Alt + arrows edit the selected note (handled by the panel)
       const pan = { ArrowLeft: -0.1, ArrowRight: 0.1 }[e.key];
       if (pan) this.onPan(pan * this.window * (document.dir === 'rtl' ? -1 : 1));
       else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && this.vOverflow) {
@@ -186,6 +187,11 @@ export class PianoRoll {
         ctx.fillStyle = v['--ink'];
         ctx.fillText(text, nx, ny + 0.5);
         hits.push({ x: nx - 2, y: ny - size / 2 - 1, w: tw + 4, h: size + 2, note: n });
+        if (n === s.selected) {
+          ctx.strokeStyle = v['--ink'];
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(nx - 3.5, ny - size / 2 - 2.5, tw + 7, size + 5);
+        }
       }
       // String names last, on their own backing, so fret numbers never cover them.
       ctx.font = `10px ${v['--label-font']}`;
@@ -203,6 +209,13 @@ export class PianoRoll {
       ctx.fillStyle = v['--rule-strong'];
       ctx.fillRect(w - 4, barTop, 3, barH);
     }
+  }
+
+  /** Tab: move a note to another string (same pitch). Returns its new position or null. */
+  moveString(note, list, dir) {
+    const p = this.fingering.moveString(note, note.instrument, list, dir, tuningFor(note.instrument, this._lowest(note.instrument, list)));
+    if (p) this.dirty = true;
+    return p;
   }
 
   /** Re-finger every part with the whole-song search (after refine, when all notes are known). */
@@ -424,6 +437,11 @@ export class PianoRoll {
       ctx.globalAlpha = 1;
       if (!on) continue;
       hits.push({ x: nx, y: y(n.pitch), w: nw, h: Math.max(4, rowH), note: n });
+      if (n === s.selected) {
+        ctx.strokeStyle = v['--ink'];
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(nx - 1, y(n.pitch) - 0.5, nw + 2, Math.max(2.5, rowH));
+      }
       // Label: name + octave when it fits in the visible part, else the letter alone.
       const shown = Math.min(nx + nw, w) - Math.max(nx, 0);
       if (rowH < 7 || shown < 8) continue;

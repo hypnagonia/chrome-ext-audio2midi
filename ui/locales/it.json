@@ -44,6 +44,10 @@
   "live.emptyDev": "Apri un file audio per provarlo.",
   "live.thisTab": "questa scheda",
   "live.rollLabel": "Piano roll delle note trascritte",
+
+  "note.hint": "Clicca per sentirla. Alt+↑/↓ cambia l'altezza, Canc la elimina.",
+  "note.hintTab": "Clicca per sentirla. Alt+↑/↓ cambia l'altezza, ↑/↓ cambia corda, Canc la elimina.",
+
   "live.jump": "live",
   "live.jumpTip": "Torna al live",
 

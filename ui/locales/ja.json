@@ -44,6 +44,10 @@
   "live.emptyDev": "音声ファイルを開いて試してみましょう。",
   "live.thisTab": "このタブ",
   "live.rollLabel": "採譜した音符のピアノロール",
+
+  "note.hint": "クリックで試聴。Alt+↑/↓で音の高さを変更、Deleteで削除。",
+  "note.hintTab": "クリックで試聴。Alt+↑/↓で音の高さ、↑/↓で弦を変更、Deleteで削除。",
+
   "live.jump": "ライブ",
   "live.jumpTip": "ライブに戻る",
 

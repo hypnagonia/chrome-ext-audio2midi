@@ -44,6 +44,10 @@
   "live.emptyDev": "開啟一個音訊檔案來試試看。",
   "live.thisTab": "這個分頁",
   "live.rollLabel": "轉譜音符的鋼琴捲軸",
+
+  "note.hint": "點擊試聽。Alt+↑/↓ 改變音高，Delete 刪除。",
+  "note.hintTab": "點擊試聽。Alt+↑/↓ 改變音高，↑/↓ 換弦，Delete 刪除。",
+
   "live.jump": "即時",
   "live.jumpTip": "回到即時",
 
