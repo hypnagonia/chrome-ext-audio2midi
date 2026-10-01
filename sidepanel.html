@@ -82,12 +82,15 @@
       <div class="heroMeta">
         <span id="keyName" class="key"></span>
         <span id="heroStatus" class="muted"></span>
+        <button id="vocalsBtn" class="chipToggle" type="button" aria-pressed="false" data-i18n="vocals.label" data-i18n-attr="title:vocals.tip"></button>
       </div>
     </section>
 
     <div class="rollWrap">
-      <canvas id="roll" class="roll" data-i18n-attr="aria-label:live.rollLabel"></canvas>
+      <canvas id="roll" class="roll" tabindex="0" data-i18n-attr="aria-label:live.rollLabel"></canvas>
       <p id="rollEmpty" class="rollEmpty"></p>
+      <div id="noteTip" class="noteTip" hidden></div>
+      <button id="liveBtn" class="liveBtn" type="button" data-i18n="live.jump" data-i18n-attr="data-tip:live.jumpTip" hidden></button>
       <div class="zoom" role="group" data-i18n-attr="aria-label:zoom.group">
         <button id="zoomOut" type="button" data-i18n-attr="aria-label:zoom.out,title:zoom.outTip">−</button>
         <span id="zoomLabel" aria-live="polite">12 s</span>
@@ -108,21 +111,19 @@
       <input id="scrub" class="scrub" type="range" min="0" max="1000" value="0" step="1" data-i18n-attr="aria-label:transport.position">
     </section>
 
-    <section class="insts">
-      <div class="instsHead">
-        <h2 data-i18n="insts.title"></h2>
-        <button id="clearBtn" class="textBtn" type="button" data-i18n="insts.clear" hidden></button>
-      </div>
+    <section class="insts" data-i18n-attr="aria-label:insts.title">
       <ul id="instruments" class="instList"></ul>
     </section>
   </main>
 
   <footer id="dock" class="dock" hidden>
+    <div class="dockSide">
     <label class="dockBtn" data-i18n-attr="data-tip:dock.openFileTip">
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm11-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
       <span data-i18n="dock.openFile"></span>
       <input id="fileInput" type="file" accept="audio/*,video/*" hidden>
     </label>
+    </div>
     <div class="recWrap">
       <button id="recBtn" class="rec" type="button" data-i18n-attr="aria-label:dock.listenAria" disabled>
         <svg class="recRing" viewBox="0 0 76 76" aria-hidden="true"><circle class="track" cx="38" cy="38" r="35"/><circle id="chunkArc" class="arc" cx="38" cy="38" r="35" pathLength="100"/></svg>
@@ -133,10 +134,16 @@
       </button>
       <span id="recLabel" class="recLabel" data-i18n="dock.listen"></span>
     </div>
+    <div class="dockSide">
     <button id="exportBtn" class="dockBtn" type="button" data-i18n-attr="data-tip:dock.exportTip" disabled>
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg>
       <span data-i18n="dock.export"></span>
     </button>
+    <button id="clearBtn" class="dockBtn" type="button" disabled>
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M5 7h14M10 7V5h4v2m-7 0 1 12h8l1-12"/></svg>
+      <span data-i18n="insts.clear"></span>
+    </button>
+    </div>
   </footer>
 
   <dialog id="settings" class="sheet">
@@ -166,6 +173,7 @@
         </details>
         <details class="advanced">
           <summary data-i18n="settings.advanced"></summary>
+          <label class="toggle"><input id="optRefine" type="checkbox"><span><strong data-i18n="settings.refine"></strong><span data-i18n="settings.refineDesc"></span></span></label>
           <label class="toggle"><input id="optF32" type="checkbox"><span><strong data-i18n="settings.f32"></strong><span data-i18n="settings.f32Desc"></span></span></label>
           <label class="field"><span><span data-i18n="settings.token"></span> <span class="fine" data-i18n="settings.tokenHint"></span></span>
             <input id="optToken" type="password" placeholder="hf_…" autocomplete="off" spellcheck="false">

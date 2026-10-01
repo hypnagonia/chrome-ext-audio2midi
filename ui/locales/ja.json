@@ -44,11 +44,16 @@
   "live.emptyDev": "音声ファイルを開いて試してみましょう。",
   "live.thisTab": "このタブ",
   "live.rollLabel": "採譜した音符のピアノロール",
+  "live.jump": "ライブ",
+  "live.jumpTip": "ライブに戻る",
 
   "key.major": "{tonic}メジャー",
   "key.minor": "{tonic}マイナー",
   "key.tipLive": "直近45秒の推定キー",
   "key.tipFull": "録音全体の推定キー",
+
+  "vocals.label": "ボーカル",
+  "vocals.tip": "歌のある曲: ボーカルのメロディーも聴き取ります。インストゥルメンタルではオフのままに。",
 
   "zoom.group": "ズーム",
   "zoom.in": "拡大",
@@ -66,8 +71,10 @@
 
   "insts.title": "楽器",
   "insts.clear": "クリア",
-  "insts.hide": "この楽器を非表示（ミュート）",
-  "insts.show": "この楽器を表示（再生）",
+  "insts.mute": "M",
+  "insts.solo": "S",
+  "insts.muteTip": "ミュート：このパートを薄く表示し、MIDI再生で消音します",
+  "insts.soloTip": "ソロ：このパートだけを表示・再生します（Shift+クリックで追加）",
 
   "dock.openFile": "ファイルを開く",
   "dock.openFileTip": "音声ファイルを採譜",
@@ -96,6 +103,8 @@
   "settings.advanced": "詳細設定",
   "settings.f32": "フル精度",
   "settings.f32Desc": "処理が遅くなり、GPUメモリを2倍使います。結果はほぼ常に同じです。",
+  "settings.refine": "停止後に改善",
+  "settings.refineDesc": "停止すると、byEar が録音全体をもう一度聴き、よりきれいで一貫した結果にします。",
   "settings.token": "Hugging Face トークン",
   "settings.tokenHint": "（無料ダウンロードが使えない場合のみ必要）",
   "settings.deleteModels": "ダウンロードしたモデルを削除",
@@ -105,6 +114,8 @@
   "msg.cacheCleared": "ダウンロードしたモデルを削除しました。次回の読み込み時に再ダウンロードされます。",
   "msg.backfill": "聴き取り中にスキップした {n} × 5 秒を補完しています…",
   "msg.cacheFailed": "次回用にモデルを保存できなかったため、再度ダウンロードされます：{error}",
+  "msg.refining": "採譜を改善中… {pct}%",
+  "msg.refined": "採譜を改善しました。",
 
   "err.noTab": "聴き取れるタブがありません。",
   "err.invoke": "Chromeでは、そのタブでツールバーのbyEarアイコンをクリックしないとタブの音を聴き取れません。アイコンをクリックしてから、もう一度「聴く」を押してください。",

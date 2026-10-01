@@ -39,7 +39,7 @@ export class Player {
     this.duration = 0;
     this.segments = []; // [{seek, rate, data: Int16Array}]
     this.notes = [];
-    this.hidden = new Set();
+    this.audible = () => true; // (instrument) -> plays in MIDI mode (mute/solo)
     this.onEnd = () => {};
     this.gen = 0; // bumps on every play/pause so a stale play() can bail out
     this.nodes = new Set(); // started sources/oscillators, stopped on pause
@@ -52,11 +52,11 @@ export class Player {
     return Math.min(this.duration, Math.max(this.startPos, this.startPos + (this.ctx.currentTime - this.startAt)));
   }
 
-  load({ segments, notes, duration, hidden }) {
+  load({ segments, notes, duration, audible }) {
     this.segments = segments;
     this.notes = [...notes].sort((a, b) => a.start - b.start);
     this.duration = duration;
-    this.hidden = hidden;
+    this.audible = audible ?? (() => true);
   }
 
   async play() {
@@ -168,7 +168,7 @@ export class Player {
     } else {
       for (const n of this.notes) {
         if (n.start >= to) break;
-        if (this.hidden.has(n.instrument)) continue;
+        if (!this.audible(n.instrument)) continue;
         const end = n.end ?? n.start + 0.3;
         if (n.start >= from) this._note(n, when(n.start), end - n.start);
         // Starting inside a held note: sound the rest of it.

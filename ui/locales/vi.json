@@ -44,11 +44,16 @@
   "live.emptyDev": "Mở một tệp âm thanh để thử.",
   "live.thisTab": "tab này",
   "live.rollLabel": "Piano roll các nốt đã chép",
+  "live.jump": "trực tiếp",
+  "live.jumpTip": "Về trực tiếp",
 
   "key.major": "{tonic} trưởng",
   "key.minor": "{tonic} thứ",
   "key.tipLive": "Giọng ước tính trong 45 giây gần nhất",
   "key.tipFull": "Giọng ước tính của cả bản ghi",
+
+  "vocals.label": "giọng hát",
+  "vocals.tip": "Bài hát có lời: nghe cả giai điệu giọng hát. Để tắt với nhạc không lời.",
 
   "zoom.group": "Thu phóng",
   "zoom.in": "Phóng to",
@@ -66,8 +71,10 @@
 
   "insts.title": "nhạc cụ",
   "insts.clear": "xóa",
-  "insts.hide": "Ẩn (và tắt tiếng) nhạc cụ này",
-  "insts.show": "Hiện (và phát) nhạc cụ này",
+  "insts.mute": "M",
+  "insts.solo": "S",
+  "insts.muteTip": "Tắt tiếng: làm mờ phần này và tắt tiếng khi phát MIDI",
+  "insts.soloTip": "Solo: chỉ hiện và phát phần này (Shift+nhấp để thêm)",
 
   "dock.openFile": "mở tệp",
   "dock.openFileTip": "chép nhạc từ một tệp âm thanh",
@@ -96,6 +103,8 @@
   "settings.advanced": "Nâng cao",
   "settings.f32": "Độ chính xác đầy đủ",
   "settings.f32Desc": "Chậm hơn, dùng gấp đôi bộ nhớ GPU. Kết quả gần như luôn giống hệt.",
+  "settings.refine": "Cải thiện sau khi dừng",
+  "settings.refineDesc": "Khi bạn dừng, byEar nghe lại toàn bộ bản ghi để kết quả sạch và nhất quán hơn.",
   "settings.token": "Token Hugging Face",
   "settings.tokenHint": "(chỉ cần khi không tải miễn phí được)",
   "settings.deleteModels": "xóa các mô hình đã tải",
@@ -105,6 +114,8 @@
   "msg.cacheCleared": "Đã xóa các mô hình đã tải. Mô hình sẽ được tải lại trong lần nạp tiếp theo.",
   "msg.backfill": "Đang bổ sung {n} × 5 giây bị bỏ qua khi nghe…",
   "msg.cacheFailed": "Không lưu được mô hình cho lần sau, nên sẽ phải tải lại: {error}",
+  "msg.refining": "Đang cải thiện bản chép… {pct}%",
+  "msg.refined": "Đã cải thiện bản chép.",
 
   "err.noTab": "Không có tab nào để nghe.",
   "err.invoke": "Chrome chỉ cho byEar nghe một tab sau khi bạn bấm biểu tượng của tiện ích trên thanh công cụ ở chính tab đó. Bấm biểu tượng, rồi bấm nghe lại.",

@@ -44,11 +44,16 @@
   "live.emptyDev": "Open an audio file to try it out.",
   "live.thisTab": "this tab",
   "live.rollLabel": "Piano roll of transcribed notes",
+  "live.jump": "live",
+  "live.jumpTip": "Back to live",
 
   "key.major": "{tonic} major",
   "key.minor": "{tonic} minor",
   "key.tipLive": "Estimated key of the last 45 seconds",
   "key.tipFull": "Estimated key of the whole recording",
+
+  "vocals.label": "vocals",
+  "vocals.tip": "The song has singing: listen for the vocal line too. Leave off for instrumentals.",
 
   "zoom.group": "Zoom",
   "zoom.in": "Zoom in",
@@ -66,8 +71,10 @@
 
   "insts.title": "instruments",
   "insts.clear": "clear",
-  "insts.hide": "Hide (and mute) this instrument",
-  "insts.show": "Show (and play) this instrument",
+  "insts.mute": "M",
+  "insts.solo": "S",
+  "insts.muteTip": "Mute: dim this part and silence it in MIDI playback",
+  "insts.soloTip": "Solo: show and play only this part (Shift-click to add more)",
 
   "dock.openFile": "open file",
   "dock.openFileTip": "transcribe an audio file",
@@ -96,6 +103,8 @@
   "settings.advanced": "Advanced",
   "settings.f32": "Full precision",
   "settings.f32Desc": "Slower, uses twice the GPU memory. Results are almost always identical.",
+  "settings.refine": "Improve after stop",
+  "settings.refineDesc": "When you press stop, byEar listens to the whole recording again for a cleaner, more consistent result.",
   "settings.token": "Hugging Face token",
   "settings.tokenHint": "(only needed if the free download is unavailable)",
   "settings.deleteModels": "delete downloaded models",
@@ -105,6 +114,8 @@
   "msg.cacheCleared": "Deleted the downloaded models. The model downloads again the next time it loads.",
   "msg.backfill": "Filling in {n} × 5 s that were skipped while listening…",
   "msg.cacheFailed": "Couldn't save the model for next time, so it will download again: {error}",
+  "msg.refining": "Improving the transcription… {pct}%",
+  "msg.refined": "Transcription improved.",
 
   "err.noTab": "There is no tab to listen to.",
   "err.invoke": "Chrome lets byEar listen to a tab only after you click its toolbar icon on that tab. Click the icon, then press listen again.",

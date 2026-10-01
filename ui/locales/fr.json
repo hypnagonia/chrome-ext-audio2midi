@@ -44,11 +44,16 @@
   "live.emptyDev": "Ouvrez un fichier audio pour essayer.",
   "live.thisTab": "cet onglet",
   "live.rollLabel": "Piano roll des notes transcrites",
+  "live.jump": "direct",
+  "live.jumpTip": "Revenir au direct",
 
   "key.major": "{tonic} majeur",
   "key.minor": "{tonic} mineur",
   "key.tipLive": "Tonalité estimée des 45 dernières secondes",
   "key.tipFull": "Tonalité estimée de tout l'enregistrement",
+
+  "vocals.label": "voix",
+  "vocals.tip": "Le morceau est chanté : écoute aussi la ligne vocale. Laisse désactivé pour les instrumentaux.",
 
   "zoom.group": "Zoom",
   "zoom.in": "Zoom avant",
@@ -66,8 +71,10 @@
 
   "insts.title": "instruments",
   "insts.clear": "effacer",
-  "insts.hide": "Masquer (et couper) cet instrument",
-  "insts.show": "Afficher (et jouer) cet instrument",
+  "insts.mute": "M",
+  "insts.solo": "S",
+  "insts.muteTip": "Muet : estompe cette partie et la coupe à la lecture MIDI",
+  "insts.soloTip": "Solo : affiche et joue seulement cette partie (Maj+clic pour en ajouter)",
 
   "dock.openFile": "ouvrir un fichier",
   "dock.openFileTip": "transcrire un fichier audio",
@@ -96,6 +103,8 @@
   "settings.advanced": "Avancé",
   "settings.f32": "Pleine précision",
   "settings.f32Desc": "Plus lent, utilise deux fois plus de mémoire GPU. Les résultats sont presque toujours identiques.",
+  "settings.refine": "Améliorer à l'arrêt",
+  "settings.refineDesc": "Quand vous arrêtez, byEar réécoute tout l'enregistrement pour un résultat plus propre et cohérent.",
   "settings.token": "Jeton Hugging Face",
   "settings.tokenHint": "(utile seulement si le téléchargement gratuit est indisponible)",
   "settings.deleteModels": "supprimer les modèles téléchargés",
@@ -105,6 +114,8 @@
   "msg.cacheCleared": "Modèles téléchargés supprimés. Le modèle sera téléchargé à nouveau au prochain chargement.",
   "msg.backfill": "Complétion des {n} × 5 s sautés pendant l'écoute…",
   "msg.cacheFailed": "Impossible d'enregistrer le modèle pour la prochaine fois, il sera donc téléchargé à nouveau : {error}",
+  "msg.refining": "Amélioration de la transcription… {pct} %",
+  "msg.refined": "Transcription améliorée.",
 
   "err.noTab": "Il n'y a aucun onglet à écouter.",
   "err.invoke": "Chrome ne laisse byEar écouter un onglet qu'après un clic sur son icône dans la barre d'outils, depuis cet onglet. Cliquez sur l'icône, puis appuyez à nouveau sur écouter.",

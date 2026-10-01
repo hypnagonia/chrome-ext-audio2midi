@@ -44,11 +44,16 @@
   "live.emptyDev": "Öffne eine Audiodatei, um es auszuprobieren.",
   "live.thisTab": "dieser tab",
   "live.rollLabel": "Pianorolle der transkribierten Noten",
+  "live.jump": "live",
+  "live.jumpTip": "Zurück zu live",
 
   "key.major": "{tonic}-Dur",
   "key.minor": "{tonic}-Moll",
   "key.tipLive": "Geschätzte Tonart der letzten 45 Sekunden",
   "key.tipFull": "Geschätzte Tonart der gesamten Aufnahme",
+
+  "vocals.label": "gesang",
+  "vocals.tip": "Der Song hat Gesang: auch auf die Gesangslinie hören. Bei Instrumentals aus lassen.",
 
   "zoom.group": "Zoom",
   "zoom.in": "Vergrößern",
@@ -66,8 +71,10 @@
 
   "insts.title": "instrumente",
   "insts.clear": "leeren",
-  "insts.hide": "Dieses Instrument ausblenden (und stummschalten)",
-  "insts.show": "Dieses Instrument einblenden (und abspielen)",
+  "insts.mute": "M",
+  "insts.solo": "S",
+  "insts.muteTip": "Stumm: Stimme abblenden und bei der MIDI-Wiedergabe stummschalten",
+  "insts.soloTip": "Solo: nur diese Stimme zeigen und abspielen (Umschalt-Klick fügt weitere hinzu)",
 
   "dock.openFile": "datei öffnen",
   "dock.openFileTip": "eine audiodatei transkribieren",
@@ -96,6 +103,8 @@
   "settings.advanced": "Erweitert",
   "settings.f32": "Volle Genauigkeit",
   "settings.f32Desc": "Langsamer, braucht doppelt so viel GPU-Speicher. Die Ergebnisse sind fast immer identisch.",
+  "settings.refine": "Nach dem Stoppen verbessern",
+  "settings.refineDesc": "Beim Stoppen hört byEar die ganze Aufnahme noch einmal an, für ein saubereres, stimmigeres Ergebnis.",
   "settings.token": "Token für Hugging Face",
   "settings.tokenHint": "(nur nötig, wenn der kostenlose Download nicht verfügbar ist)",
   "settings.deleteModels": "heruntergeladene modelle löschen",
@@ -105,6 +114,8 @@
   "msg.cacheCleared": "Die heruntergeladenen Modelle wurden gelöscht. Das Modell wird beim nächsten Laden neu heruntergeladen.",
   "msg.backfill": "{n} × 5 s, die beim Zuhören übersprungen wurden, werden ergänzt…",
   "msg.cacheFailed": "Das Modell konnte nicht für später gespeichert werden und wird erneut heruntergeladen: {error}",
+  "msg.refining": "Transkription wird verbessert… {pct} %",
+  "msg.refined": "Transkription verbessert.",
 
   "err.noTab": "Es gibt keinen Tab zum Zuhören.",
   "err.invoke": "Chrome lässt byEar einen Tab erst abhören, nachdem du in diesem Tab auf das Symbol in der Symbolleiste geklickt hast. Klick auf das Symbol und dann erneut auf „zuhören“.",

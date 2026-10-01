@@ -6,9 +6,10 @@
   <img src="docs/screenshot.png" alt="byEar side panel showing the current chord, the key, a piano roll of the notes and a list of instruments" width="380">
 </p>
 
-- **Chords for every instrument.** Guitar, piano, bass, voice, strings, brass, drums: each one gets its own chords or notes.
-- **Live, in a side panel.** Keep watching the video. byEar writes along a few seconds behind.
-- **Learn songs by ear, faster.** Zoom into the piano roll, click to jump, switch between the original and the MIDI.
+- **Chords for every instrument.** Guitar, piano, bass, voice, strings, brass, drums: each gets its own channel strip with its chords or notes, and mute and solo buttons like a mixer.
+- **Live, in a side panel.** Keep watching the video. byEar writes along a few seconds behind, then re-listens to the whole recording when you stop, for a cleaner result.
+- **Vocals.** Switch on **vocals** for songs with singing and byEar follows the vocal line too.
+- **Learn songs by ear, faster.** Solo a part, zoom into the piano roll, click to jump, switch between the original and the MIDI.
 - **Export MIDI.** One click, one track per instrument.
 - **Private.** Everything runs on your own GPU. No audio is uploaded anywhere, and there's no account.
 - **18 languages,** with note names the way musicians say them: C D E, Do Ré Mi, or C D E … H.
@@ -25,10 +26,12 @@ Requires Chrome 116 or newer with WebGPU (any recent Mac, Windows or ChromeOS la
 ## Tips
 
 - Notes appear about 5 seconds after you hear them, because byEar listens in 5-second slices.
-- Keep the video player's volume at 100% and use your system volume instead. byEar hears the tab at the player's volume.
+- Songs with singing: switch on **vocals** (under the key). Leave it off for instrumentals.
+- Quiet audio is levelled automatically, but keeping the player's volume at 100% still helps.
+- **Space** plays and stops. Over the piano roll: scroll for pitch, Shift + scroll for time, Ctrl/⌘ + scroll to zoom.
 - In **settings** you can switch to the **accurate** model, which catches more, especially vocals in a busy mix. It needs a stronger GPU.
 - Tell byEar which instruments to listen for (settings → only listen for certain instruments) when you know the line-up.
-- Click an instrument to hide it from the piano roll and mute it in MIDI playback.
+- **M** mutes a part, **S** solos it (several at once is fine). The big chord then follows what you hear.
 
 ## For developers
 

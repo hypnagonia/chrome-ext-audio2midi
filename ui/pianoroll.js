@@ -6,10 +6,13 @@ import { chordName } from '../music/chords.js';
 
 const DRUM_LANE = 18;
 const CHORD_LANE = 22;
+const RULER = 16;
+const fmtTime = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 const BLACK_KEYS = new Set([1, 3, 6, 8, 10]);
 export const ZOOM_STEPS = [3, 5, 8, 12, 20, 30, 45, 60]; // seconds visible
 
-const THEME_VARS = ['--paper', '--rule', '--rule-strong', '--ink', '--muted', '--live', '--roll-black', '--pending', '--pending-line', '--chord-font', '--label-font'];
+const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)');
+const THEME_VARS = ['--pending-pulse', '--paper', '--rule', '--rule-strong', '--ink', '--muted', '--live', '--roll-black', '--pending', '--pending-line', '--chord-font', '--label-font'];
 
 /** Relative luminance (WCAG) of a #rrggbb colour. */
 function luminance(hex) {
@@ -38,17 +41,47 @@ export class PianoRoll {
     this.ctx = canvas.getContext('2d');
     this.window = 12; // seconds visible
     this.onZoom = () => {};
+    this.onPan = () => {}; // (seconds) positive = later in time
+    this.hits = []; // [{x, y, w, h, note}] from the last draw, for hover
     this.dirty = true; // set by callers when content changes; draw() clears it
     this.easing = false; // true while the pitch range is still animating
     this.textWidths = new Map();
-    // Ctrl/Cmd + wheel, or trackpad pinch, zooms time.
+    // Wheel over the roll scrolls the roll: pans time. Ctrl/Cmd + wheel (or pinch) zooms.
     canvas.addEventListener('wheel', (e) => {
-      if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
-      this.zoom(e.deltaY > 0 ? 1 : -1);
+      if (e.ctrlKey || e.metaKey) {
+        this.zoom(e.deltaY > 0 ? 1 : -1);
+        return;
+      }
+      // Like a DAW piano roll: wheel scrolls pitch (when zoomed in far enough to overflow),
+      // Shift + wheel or a sideways swipe pans time.
+      const scale = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? this.h : 1; // lines / pages -> px
+      const sideways = e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
+      if (!sideways && this.vOverflow) {
+        this.pitchScroll -= (e.deltaY * scale) / this.rowH;
+        this.dirty = true;
+        return;
+      }
+      const px = sideways ? (e.deltaX || e.deltaY) : e.deltaY;
+      this.onPan((px * scale / (this.w || 1)) * this.window);
     }, { passive: false });
+    canvas.addEventListener('keydown', (e) => {
+      const pan = { ArrowLeft: -0.1, ArrowRight: 0.1 }[e.key];
+      if (pan) this.onPan(pan * this.window * (document.dir === 'rtl' ? -1 : 1));
+      else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && this.vOverflow) {
+        this.pitchScroll += e.key === 'ArrowUp' ? 2 : -2;
+        this.dirty = true;
+      }
+      else if (e.key === '+' || e.key === '=') this.zoom(-1);
+      else if (e.key === '-' || e.key === '_') this.zoom(1);
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+    });
     this.lo = 48;
     this.hi = 72;
+    this.pitchScroll = 0; // semitones the user scrolled the pitch view (when it overflows)
+    this.vOverflow = false;
     new ResizeObserver(() => this._resize()).observe(canvas);
     this._watchDpr();
     this._resize();
@@ -60,6 +93,7 @@ export class PianoRoll {
     const next = ZOOM_STEPS[Math.max(0, Math.min(ZOOM_STEPS.length - 1, (i < 0 ? ZOOM_STEPS.length - 1 : i) + dir))];
     if (next !== this.window) {
       this.window = next;
+      this.pitchScroll = 0;
       this.onZoom(next);
     }
   }
@@ -68,6 +102,20 @@ export class PianoRoll {
   _watchDpr() {
     const mq = matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
     mq.addEventListener('change', () => { this._resize(); this._watchDpr(); }, { once: true });
+  }
+
+  /** Right edge of the live view: the newest notes plus a thin strip of audio in flight. */
+  liveEdge(now, done) {
+    return Math.min(now, done + this.window * 0.12);
+  }
+
+  /** The audible note under a canvas point (CSS px), or null. */
+  noteAt(px, py) {
+    for (let i = this.hits.length - 1; i >= 0; i--) {
+      const r = this.hits[i];
+      if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) return r.note;
+    }
+    return null;
   }
 
   _resize() {
@@ -100,40 +148,64 @@ export class PianoRoll {
   }
 
   /**
-   * @param s {notes, now, done, hidden:Set, chords:[{start,end,chord}], flats, playhead, center}
-   *   now: seconds of audio captured; done: seconds transcribed so far.
+   * @param s {notes, now, done, audible(inst)->bool, chords:[{start,end,chord}], flats, playhead, center, end}
+   *   now: seconds of audio captured; done: seconds transcribed so far;
+   *   end: live only, a fixed right edge while the user has scrolled back (null follows live).
    */
   draw(s) {
     const { ctx, w, h } = this;
     if (!w || !h) return;
     const v = this._theme();
-    const t1 = s.center != null
-      ? Math.max(s.center + this.window * 0.6, this.window)
-      : Math.max(Math.min(s.now, s.done + this.window * 0.12), this.window);
+    const t1 = s.center != null ? Math.max(s.center + this.window * 0.6, this.window)
+      : s.end != null ? Math.max(s.end, this.window)
+      : Math.max(this.liveEdge(s.now, s.done), this.window);
     const t0 = t1 - this.window;
     const x = (t) => ((t - t0) / this.window) * w;
     const top = CHORD_LANE;
-    const bottom = h - DRUM_LANE;
+    const bottom = h - DRUM_LANE - RULER;
 
-    // Fit pitch range to what is visible (eased so it does not jump).
-    let lo = Infinity, hi = -Infinity;
+    // Fit pitch range to the audible notes in view (eased so it does not jump);
+    // soloing an instrument zooms the roll onto its range.
+    let lo = Infinity, hi = -Infinity, alo = Infinity, ahi = -Infinity;
     const visible = [];
     for (const n of s.notes) {
-      if (n.start > t1 || (n.end ?? s.done) < t0 || s.hidden.has(n.instrument)) continue;
+      if (n.start > t1 || (n.end ?? s.done) < t0) continue;
       visible.push(n);
-      if (n.instrument !== 'drums') { lo = Math.min(lo, n.pitch); hi = Math.max(hi, n.pitch); }
+      if (n.instrument === 'drums') continue;
+      lo = Math.min(lo, n.pitch); hi = Math.max(hi, n.pitch);
+      if (s.audible(n.instrument)) { alo = Math.min(alo, n.pitch); ahi = Math.max(ahi, n.pitch); }
     }
+    if (alo <= ahi) { lo = alo; hi = ahi; }
     this.easing = false;
+    const areaH = bottom - top;
+    // Zoomed in: rows keep a minimum height (so note names fit) and the pitch view scrolls.
+    const minRow = this.window <= 5 ? 14 : this.window <= 12 ? 9 : 0;
+    this.vOverflow = false;
+    let extent = null;
     if (lo <= hi) {
       const mid = (lo + hi) / 2;
       lo = Math.min(lo - 1, mid - 6);
       hi = Math.max(hi + 1, mid + 6);
-      this.lo += (lo - this.lo) * 0.08;
-      this.hi += (hi - this.hi) * 0.08;
+      extent = [lo, hi];
+      const fit = hi - lo + 1;
+      const rows = minRow ? Math.min(fit, Math.floor(areaH / minRow)) : fit;
+      if (rows < fit) {
+        this.vOverflow = true;
+        const maxScroll = (fit - rows) / 2;
+        this.pitchScroll = Math.max(-maxScroll, Math.min(maxScroll, this.pitchScroll));
+        const center = mid + this.pitchScroll;
+        lo = center - (rows - 1) / 2;
+        hi = center + (rows - 1) / 2;
+      } else {
+        this.pitchScroll = 0;
+      }
+      this.lo += (lo - this.lo) * 0.12;
+      this.hi += (hi - this.hi) * 0.12;
       this.easing = Math.abs(lo - this.lo) > 0.05 || Math.abs(hi - this.hi) > 0.05;
     }
     const pLo = Math.floor(this.lo), pHi = Math.ceil(this.hi);
-    const rowH = (bottom - top) / (pHi - pLo + 1);
+    const rowH = areaH / (pHi - pLo + 1);
+    this.rowH = rowH;
     const y = (p) => bottom - (p - pLo + 1) * rowH;
 
     ctx.clearRect(0, 0, w, h);
@@ -152,16 +224,33 @@ export class PianoRoll {
         ctx.fillText(noteName(p), 4, y(p) + rowH - 1);
       }
     }
-    // Second lines
+    // Second lines + time ruler (labels at least ~56 px apart)
     ctx.fillStyle = v['--rule'];
     const step = this.window > 30 ? 5 : 1;
     for (let t = Math.ceil(t0 / step) * step; t <= t1; t += step) ctx.fillRect(Math.round(x(t)), top, 1, bottom - top);
+    const every = [1, 2, 5, 10, 15, 30, 60].find((k) => (k / this.window) * w >= 56) ?? 60;
+    ctx.font = `11px ${v['--label-font']}`;
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = v['--muted'];
+    for (let t = Math.ceil(Math.max(0, t0) / every) * every; t <= t1; t += every) {
+      ctx.fillRect(Math.round(x(t)), h - RULER, 1, 4);
+      ctx.fillText(fmtTime(t), Math.round(x(t)) + 4, h - RULER / 2 + 1);
+    }
+    ctx.fillStyle = v['--rule-strong'];
+    ctx.fillRect(0, h - RULER, w, 1);
 
-    // Not yet transcribed
+    // Not yet transcribed. While listening it breathes slowly, so you can see byEar is working.
     if (s.done < t1) {
       const xd = Math.max(0, x(s.done));
       ctx.fillStyle = v['--pending'];
       ctx.fillRect(xd, 0, w - xd, h);
+      if (s.listening) {
+        // Only the zone the next chunk will fill pulses, brighter and darker.
+        const xe = Math.min(w, x(Math.min(s.now, s.done + (s.chunk || 5))));
+        const pulse = REDUCED_MOTION.matches ? 0.5 : 0.5 + 0.5 * Math.sin(performance.now() / 380);
+        ctx.fillStyle = `rgba(255, 255, 255, ${0.02 + 0.10 * pulse})`;
+        ctx.fillRect(xd, 0, Math.max(0, xe - xd), h);
+      }
       ctx.save();
       ctx.beginPath();
       ctx.rect(xd, 0, w - xd, h);
@@ -178,11 +267,17 @@ export class PianoRoll {
     }
 
     // Drum hits in their own lane
+    const hits = [];
     for (const n of visible) {
       if (n.instrument !== 'drums') continue;
+      const on = s.audible(n.instrument);
+      ctx.globalAlpha = on ? 1 : 0.2;
       ctx.fillStyle = instrumentColor(n.instrument);
-      ctx.fillRect(x(n.start) - 1, bottom + 3 + ((n.pitch % 6) / 6) * (DRUM_LANE - 6), 3, 3);
+      const dx = x(n.start) - 1, dy = bottom + 3 + ((n.pitch % 6) / 6) * (DRUM_LANE - 6);
+      ctx.fillRect(dx, dy, 3, 3);
+      if (on) hits.push({ x: dx - 2, y: dy - 2, w: 7, h: 7, note: n });
     }
+    ctx.globalAlpha = 1;
 
     // Pitched notes, clipped to the note area
     ctx.save();
@@ -192,13 +287,20 @@ export class PianoRoll {
     const size = Math.max(7, Math.min(11, Math.floor(rowH - 1)));
     const font = `bold ${size}px ${v['--label-font']}`;
     ctx.textBaseline = 'middle';
-    for (const n of visible) {
-      if (n.instrument === 'drums') continue;
+    // Muted / not-soloed parts are drawn faintly underneath the audible ones.
+    const pitched = visible.filter((n) => n.instrument !== 'drums');
+    pitched.sort((a, b) => s.audible(a.instrument) - s.audible(b.instrument));
+    for (const n of pitched) {
+      const on = s.audible(n.instrument);
       const color = instrumentColor(n.instrument);
       const nx = x(n.start);
       const nw = Math.max(2, x(n.end ?? s.done) - nx - 1);
+      ctx.globalAlpha = on ? 1 : 0.18;
       ctx.fillStyle = color;
       ctx.fillRect(nx, y(n.pitch) + 0.5, nw, Math.max(1.5, rowH - 1));
+      ctx.globalAlpha = 1;
+      if (!on) continue;
+      hits.push({ x: nx, y: y(n.pitch), w: nw, h: Math.max(4, rowH), note: n });
       // Label: name + octave when it fits in the visible part, else the letter alone.
       const shown = Math.min(nx + nw, w) - Math.max(nx, 0);
       if (rowH < 7 || shown < 8) continue;
@@ -234,6 +336,15 @@ export class PianoRoll {
     }
 
     this.t0 = t0; // for pointer scrubbing
+    this.hits = hits;
+    // Vertical scrollbar: where the visible pitch rows sit within all the notes in view.
+    if (this.vOverflow && extent) {
+      const span = extent[1] - extent[0] + 1;
+      const barTop = top + ((extent[1] - pHi) / span) * areaH;
+      const barH = Math.max(16, ((pHi - pLo + 1) / span) * areaH);
+      ctx.fillStyle = v['--rule-strong'];
+      ctx.fillRect(w - 4, Math.max(top, Math.min(bottom - barH, barTop)), 3, barH);
+    }
     if (s.playhead != null && s.playhead > t0) {
       ctx.fillStyle = v['--live'];
       ctx.fillRect(Math.round(x(s.playhead)), 0, 1.5, h);

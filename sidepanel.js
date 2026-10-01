@@ -32,7 +32,11 @@ const LINE_INSTRUMENTS = new Set([
 
 // ---------------------------------------------------------------- settings
 
-const DEFAULTS = { accepted: false, token: '', model: 'small', f32: false, instruments: [], zoom: 12, lang: 'auto', naming: 'auto' };
+const DEFAULTS = {
+  accepted: false, token: '', model: 'small', f32: false, instruments: [], zoom: 12, lang: 'auto', naming: 'auto',
+  vocals: false, // tell the model the song has singing (conditioning hint)
+  refine: true, // re-transcribe the whole recording after stop
+};
 let settings = { ...DEFAULTS };
 const settingsStore = {
   async get() {
@@ -96,6 +100,7 @@ let download = null; // {t0, loaded0} for the ETA
 
 function loadModel(extra = {}) {
   player.pause();
+  cancelRefine();
   loading = true;
   modelInfo = null;
   download = null;
@@ -189,14 +194,97 @@ const session = {
   chords: new Map(), // instrument -> segments
   ensemble: [],
   key: null,
-  hidden: new Set(),
+  muted: new Set(), // channel strip M
+  solo: new Set(), // channel strip S
+  viewEnd: null, // live view: fixed right edge while scrolled back; null follows the newest notes
   dropped: 0,
   audio: [], // recorded chunks for review: [{seek, rate, data: Int16Array}]
   droppedSeeks: [], // [{part, seek}] chunks skipped live, transcribed once the session is final
   backfilling: 0,
   byInst: new Map(), // instrument -> notes, for the instrument rows
+  refine: null, // {parts:Set, runs, chunks, done, notes:Map} while re-transcribing after stop
+  ignoreParts: new Set(), // sessions whose late results must be dropped (cancelled refine)
 };
+
+// ---------------------------------------------------------------- hints & refine
+
+/** Instruments clearly present so far (a hint for the model), plus voice when the user says so. */
+function lineup() {
+  const pitchedTotal = [...session.byInst.values()].reduce((a, l) => a + l.length, 0);
+  const names = [...session.byInst.entries()]
+    .filter(([inst, l]) => !inst.startsWith('program_') && l.length >= Math.max(12, pitchedTotal * 0.02))
+    .map(([inst]) => inst);
+  if (settings.vocals && !names.includes('voice')) names.push('voice');
+  return names;
+}
+
+/** Re-transcribe the recording with the session's line-up as a hint, then swap the notes in. */
+async function startRefine() {
+  cancelRefine();
+  const segs = [...session.audio].sort((a, b) => a.seek - b.seek);
+  if (!segs.length) return;
+  const hint = lineup();
+  const runs = [];
+  for (const seg of segs) {
+    const run = runs[runs.length - 1];
+    if (run && Math.abs(run[run.length - 1].seek + CHUNK_SEC - seg.seek) < 1e-6) run.push(seg); else runs.push([seg]);
+  }
+  const r = { parts: new Set(), runs: runs.length, chunks: segs.length, done: 0, notes: new Map() };
+  session.refine = r;
+  banner(t('msg.refining', { pct: 0 }), 'info');
+  for (const run of runs) {
+    const part = ++session.part;
+    r.parts.add(part);
+    worker.postMessage({ type: 'part', part });
+    worker.postMessage({ type: 'hint', part, names: hint });
+    for (const seg of run) {
+      const f32 = new Float32Array(seg.data.length);
+      for (let i = 0; i < f32.length; i++) f32[i] = seg.data[i] / 32768;
+      const samples = new Float32Array(await resample16k(f32, seg.rate));
+      if (session.refine !== r) return; // cancelled meanwhile
+      worker.postMessage({ type: 'chunk', part, samples, seek: seg.seek, next: seg.seek + CHUNK_SEC }, [samples.buffer]);
+    }
+    worker.postMessage({ type: 'finish', part });
+  }
+  worker.postMessage({ type: 'hint', part: session.part, names: null });
+}
+
+function onRefineEvents(msg) {
+  const r = session.refine;
+  for (const ev of msg.events) {
+    const k = `${msg.part}:${ev.index}`;
+    if (ev.type === 'start') r.notes.set(k, { instrument: ev.instrument, pitch: ev.pitch, start: ev.time, end: null });
+    else if (r.notes.has(k)) r.notes.get(k).end = ev.time;
+  }
+  if (msg.seek != null) {
+    r.done++;
+    banner(t('msg.refining', { pct: Math.round((100 * r.done) / r.chunks) }), 'info');
+  }
+  if (msg.final && --r.runs === 0) {
+    // Swap in the refined transcription in one step.
+    session.refine = null;
+    session.notes = new Map();
+    session.byInst.clear();
+    for (const [k, n] of r.notes) addNote(k, n);
+    roll.dirty = true;
+    enterReview();
+    renderPanel();
+    banner(t('msg.refined'), 'info');
+    setTimeout(() => { if ($('bannerText').textContent === t('msg.refined')) banner(''); }, 4000);
+  }
+}
+
+function cancelRefine() {
+  const r = session.refine;
+  if (!r) return;
+  for (const p of r.parts) session.ignoreParts.add(p);
+  session.refine = null;
+  worker.postMessage({ type: 'abort' });
+  banner('');
+}
 const player = new Player();
+/** Mixer logic: with any solo, only soloed channels sound and show; else everything not muted. */
+const audible = (inst) => (session.solo.size ? session.solo.has(inst) : !session.muted.has(inst));
 const reviewing = () => !capture && session.done > 0;
 
 function addNote(k, note) {
@@ -209,7 +297,8 @@ function addNote(k, note) {
 }
 
 function onEvents(msg) {
-  if (msg.part < session.minPart) return; // from a session the user cleared
+  if (msg.part < session.minPart || session.ignoreParts.has(msg.part)) return; // cleared / cancelled
+  if (session.refine?.parts.has(msg.part)) return onRefineEvents(msg);
   if (msg.backfill) {
     session.backfilling = Math.max(0, session.backfilling - 1);
     if (!session.backfilling) banner('');
@@ -227,7 +316,12 @@ function onEvents(msg) {
   }
   if (msg.final) {
     session.done = Math.max(session.done, session.audioEnd ?? 0);
-    backfill(msg.part); // now every skipped chunk of this session is known
+    // Now every chunk of this session is known: refine the whole recording, or at least
+    // fill in the chunks that were skipped live.
+    // A capped recording doesn't cover the whole session: refining it would drop notes.
+    const complete = session.audio.length * CHUNK_SEC < MAX_RECORDING_SEC;
+    if (settings.refine && session.audio.length && complete) startRefine();
+    else backfill(msg.part);
   }
   roll.dirty = true;
   if (reviewing()) enterReview();
@@ -245,7 +339,7 @@ function analyse(full = false) {
     if ((n.end ?? end) < from) continue;
     if (!byInst.has(n.instrument)) byInst.set(n.instrument, []);
     byInst.get(n.instrument).push(n);
-    if (n.instrument !== 'drums') pitched.push(n);
+    if (n.instrument !== 'drums' && audible(n.instrument)) pitched.push(n);
   }
   session.chords.clear();
   for (const [inst, notes] of byInst) {
@@ -309,7 +403,8 @@ function renderPanel() {
   renderTransport();
   $('instruments').parentElement.hidden = insts.length === 0;
   $('exportBtn').disabled = !hasNotes;
-  $('clearBtn').hidden = !hasNotes;
+  $('clearBtn').disabled = !hasNotes;
+  $('liveBtn').hidden = reviewing() || session.viewEnd == null;
 }
 
 const rowCache = new Map(); // instrument -> <li>
@@ -326,24 +421,28 @@ function instrumentRow(inst, flats, T) {
   if (!li) {
     li = document.createElement('li');
     li.className = 'inst';
-    li.tabIndex = 0;
-    li.setAttribute('role', 'switch');
     li.innerHTML = `<span class="dot" style="background:${instrumentColor(inst)}"></span>
-      <span class="name"><span class="label"></span><span class="count"></span></span>
+      <span class="ms">
+        <button type="button" class="mute" data-i18n="insts.mute" data-i18n-attr="title:insts.muteTip,aria-label:insts.muteTip"></button>
+        <button type="button" class="solo" data-i18n="insts.solo" data-i18n-attr="title:insts.soloTip,aria-label:insts.soloTip"></button>
+      </span>
+      <span class="name"></span>
       <span class="current"></span><span class="trail"></span>`;
-    const toggle = () => {
-      if (session.hidden.has(inst)) session.hidden.delete(inst); else session.hidden.add(inst);
-      roll.dirty = true;
-      renderPanel();
+    applyI18n(li);
+    const toggle = (set) => {
+      if (set.has(inst)) set.delete(inst); else set.add(inst);
+      mixChanged();
     };
-    li.addEventListener('click', toggle);
-    li.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+    // Any number of channels can be muted or soloed at once.
+    li.querySelector('.mute').addEventListener('click', () => toggle(session.muted));
+    li.querySelector('.solo').addEventListener('click', () => toggle(session.solo));
     rowCache.set(inst, li);
   }
-  const off = session.hidden.has(inst);
-  li.classList.toggle('off', off);
-  li.setAttribute('aria-checked', String(!off));
-  li.title = t(off ? 'insts.show' : 'insts.hide');
+  const muted = session.muted.has(inst);
+  const soloed = session.solo.has(inst);
+  li.classList.toggle('off', !audible(inst));
+  li.querySelector('.mute').setAttribute('aria-pressed', String(muted));
+  li.querySelector('.solo').setAttribute('aria-pressed', String(soloed));
   const all = session.byInst.get(inst);
   const notes = upTo(all, T);
   const segs = (session.chords.get(inst) || []).filter((sg) => sg.start <= T);
@@ -352,19 +451,20 @@ function instrumentRow(inst, flats, T) {
   if (inst === 'drums') {
     const hits = new Map();
     for (const n of notes) if (n.start >= T - CHUNK_SEC) hits.set(drumName(n.pitch), (hits.get(drumName(n.pitch)) || 0) + 1);
-    trail = [...hits].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([name, c]) => `<span>${esc(name)} ${c}</span>`).join('');
+    trail = [...hits].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([name, c]) => `<span>${esc(name)} ${c}</span>`).join('');
   } else if (segs.length) {
     const cur = currentSegment(segs, T);
     current = cur ? chordHTML(cur.chord, flats) : '';
-    trail = segs.slice(-6).map((s) => chordHTML(s.chord, flats)).join('');
+    trail = segs.slice(-4).map((s) => chordHTML(s.chord, flats)).join('');
   } else {
     const last = notes.slice(-8);
     const lastNote = last[last.length - 1];
     if (lastNote && lastNote.start >= T - 2) current = `<span class="chord">${esc(noteName(lastNote.pitch, flats).replace(/-?\d+$/, ''))}</span>`;
     trail = `<span class="notes">${esc(last.map((n) => noteName(n.pitch, flats)).join('  '))}</span>`;
   }
-  setText(li.querySelector('.label'), instrumentLabel(inst));
-  setText(li.querySelector('.count'), String(all.length));
+  // The strip is narrow: the name truncates, the full name and note count are on hover.
+  setText(li.querySelector('.name'), instrumentLabel(inst));
+  li.title = `${instrumentLabel(inst)}: ${all.length}`;
   setHTML(li.querySelector('.current'), current);
   setHTML(li.querySelector('.trail'), trail);
   return li;
@@ -390,12 +490,16 @@ function frame() {
       notes: session.notes.values(),
       now: Math.max(session.now, session.done),
       done: session.done,
-      hidden: session.hidden,
+      audible,
+      end: reviewing() ? null : session.viewEnd,
+      listening: !!capture && !capture.waiting,
+      chunk: CHUNK_SEC,
       chords: session.ensemble,
       flats: session.key?.useFlats ?? false,
       playhead: review ? t : null,
       center: review ? t : null,
     });
+    if (pointer) updateTip();
     if (review && !scrubbing) $('scrub').value = player.duration ? Math.round((t / player.duration) * 1000) : 0;
     if (review) {
       setText($('timeLabel'), `${fmtTime(t)} / ${fmtTime(player.duration)}`);
@@ -442,21 +546,29 @@ async function startCapture(makeSource, label, cleanup) {
   const rate = ctx.sampleRate;
   const chunkLen = Math.round(CHUNK_SEC * rate);
   player.pause();
+  cancelRefine(); // listening again: the previous recording keeps its current notes
   const part = ++session.part;
   session.offset = Math.max(session.done, session.now);
   worker.postMessage({ type: 'part', part });
+  worker.postMessage({ type: 'hint', part, names: null }); // no stale hint from an earlier refine
   const c = {
     ctx, rate, label, cleanup, captured: 0, chunk: new Float32Array(chunkLen), fill: 0, index: 0,
     stopped: false, pending: Promise.resolve(), level: 0, levelShown: 0, quietFor: 0, waiting: false,
   };
+  let lastHint = null;
   const send = async (samples, seek, final) => {
+    const hint = settings.vocals ? lineup() : null;
+    if (JSON.stringify(hint) !== JSON.stringify(lastHint)) {
+      lastHint = hint;
+      worker.postMessage({ type: 'hint', part, names: hint });
+    }
     let energy = 0;
     for (let i = 0; i < samples.length; i += 4) energy += samples[i] * samples[i];
     if (Math.sqrt(energy / (samples.length / 4)) < 1e-4) {
-      worker.postMessage({ type: 'skip', part, seek, next: seek + CHUNK_SEC });
+      worker.postMessage({ type: 'skip', part, seek, next: seek + CHUNK_SEC, live: true });
     } else {
       const copy = new Float32Array(await resample16k(samples, rate));
-      worker.postMessage({ type: 'chunk', part, samples: copy, seek, next: seek + CHUNK_SEC }, [copy.buffer]);
+      worker.postMessage({ type: 'chunk', part, samples: copy, seek, next: seek + CHUNK_SEC, live: true }, [copy.buffer]);
     }
     if (final) worker.postMessage({ type: 'finish', part });
   };
@@ -582,7 +694,7 @@ function enterReview() {
   analyse(true);
   const last = session.audio[session.audio.length - 1];
   const duration = Math.max(session.done, last ? last.seek + last.data.length / last.rate : 0);
-  player.load({ segments: session.audio, notes: [...session.notes.values()], duration, hidden: session.hidden });
+  player.load({ segments: session.audio, notes: [...session.notes.values()], duration, audible });
 }
 
 const fmtTime = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
@@ -716,11 +828,16 @@ $('clearBtn').addEventListener('click', () => {
   session.notes.clear();
   session.byInst.clear();
   rowCache.clear();
+  session.muted.clear();
+  session.solo.clear();
+  session.viewEnd = null;
+  roll.pitchScroll = 0;
   session.chords.clear();
   session.ensemble = [];
   session.key = null;
   session.dropped = 0;
   session.backfilling = 0;
+  cancelRefine();
   banner('');
   if (capture) {
     // Keep listening: only notes from earlier sessions are dropped from now on.
@@ -733,6 +850,15 @@ $('clearBtn').addEventListener('click', () => {
   }
   roll.dirty = true;
   renderPanel();
+});
+
+// "vocals": tell the model the song has singing (MuScriptor's own conditioning input).
+function showVocals() { $('vocalsBtn').setAttribute('aria-pressed', String(settings.vocals)); }
+$('vocalsBtn').addEventListener('click', async () => {
+  await settingsStore.set({ vocals: !settings.vocals });
+  showVocals();
+  // Applies to the next chunks while listening; in review, re-transcribe with the new hint.
+  if (!capture && reviewing() && settings.refine && session.audio.length) startRefine();
 });
 
 // Review transport
@@ -758,6 +884,71 @@ $('scrub').addEventListener('change', () => {
   player.seek(($('scrub').value / 1000) * player.duration);
   renderPanel();
 });
+/** Mute/solo changed: chords, roll, playback and rows follow what you hear. */
+function mixChanged() {
+  roll.dirty = true;
+  if (reviewing()) {
+    enterReview();
+    if (player.playing) player.seek(player.time); // reschedule with the new mix
+  } else {
+    analyse();
+  }
+  renderPanel();
+}
+
+// Scrolling over the roll pans it: live, it looks back in time; in review, it scrubs.
+let wheelTimer = null;
+let wheelResume = false;
+roll.onPan = (d) => {
+  if (reviewing()) {
+    if (player.playing) { player.pause(); wheelResume = true; }
+    player.pos = Math.max(0, Math.min(player.duration, player.pos + d));
+    clearTimeout(wheelTimer);
+    wheelTimer = setTimeout(async () => {
+      if (wheelResume) await player.play();
+      wheelResume = false;
+      renderPanel();
+    }, 300);
+  } else {
+    const edge = roll.liveEdge(Math.max(session.now, session.done), session.done);
+    const next = (session.viewEnd ?? edge) + d;
+    session.viewEnd = next >= edge - 0.05 ? null : Math.max(roll.window, next);
+  }
+  roll.dirty = true;
+  renderPanel();
+};
+$('liveBtn').addEventListener('click', () => {
+  session.viewEnd = null;
+  roll.dirty = true;
+  renderPanel();
+});
+
+// Hover a note: name, instrument, time. Re-checked every frame while the roll moves.
+let pointer = null;
+function updateTip() {
+  const tip = $('noteTip');
+  const n = pointer && !drag ? roll.noteAt(pointer.x, pointer.y) : null;
+  if (!n) { tip.hidden = true; return; }
+  const e = { offsetX: pointer.x, offsetY: pointer.y };
+  const flats = session.key?.useFlats ?? false;
+  const name = n.instrument === 'drums' ? drumName(n.pitch) : noteName(n.pitch, flats);
+  tip.innerHTML = `<strong>${esc(name)}</strong><span>${esc(instrumentLabel(n.instrument))}, ${fmtTime(n.start)}</span>`;
+  tip.hidden = false;
+  const r = $('roll').getBoundingClientRect();
+  const left = Math.min(e.offsetX + 12, r.width - tip.offsetWidth - 4);
+  const top = e.offsetY + 16 + tip.offsetHeight > r.height ? e.offsetY - tip.offsetHeight - 8 : e.offsetY + 16;
+  tip.style.left = `${Math.max(4, left)}px`;
+  tip.style.top = `${Math.max(4, top)}px`;
+}
+$('roll').addEventListener('pointermove', (e) => {
+  pointer = { x: e.offsetX, y: e.offsetY };
+  updateTip();
+});
+$('roll').addEventListener('pointerleave', () => {
+  pointer = null;
+  updateTip();
+});
+
 // Click the piano roll to move the playhead there; drag to scrub.
 let drag = null;
 $('roll').addEventListener('pointerdown', (e) => {
@@ -789,10 +980,21 @@ $('roll').addEventListener('pointerup', async (e) => {
   renderPanel();
 });
 $('roll').addEventListener('pointercancel', () => { drag = null; });
+// Space is always play/stop, wherever focus is (except while typing).
+document.addEventListener('keydown', (e) => {
+  if (e.key !== ' ' || $('live').hidden || $('settings').open) return;
+  if (e.target.closest('input[type=text], input[type=password], textarea, select')) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (e.repeat) return;
+  if (capture) stopCapture();
+  else if (reviewing()) $('playBtn').click();
+  else if (!$('recBtn').disabled) $('recBtn').click();
+}, true);
+document.addEventListener('keyup', (e) => { if (e.key === ' ' && !$('live').hidden) e.preventDefault(); }, true);
 document.addEventListener('keydown', (e) => {
   if (!reviewing() || $('live').hidden || $('settings').open) return;
-  if (e.target.closest('input, button, select, textarea, a, summary, label, dialog, [role=switch]')) return;
-  if (e.key === ' ') { e.preventDefault(); $('playBtn').click(); return; }
+  if (e.target.closest('input, button, select, textarea, a, summary, label, dialog, [role=switch], canvas')) return;
   const dir = { ArrowLeft: -5, ArrowRight: 5 }[e.key];
   if (!dir) return;
   e.preventDefault();
@@ -841,6 +1043,7 @@ const openSettings = () => {
   $('optNaming').value = settings.naming;
   $('optToken').value = settings.token;
   $('optF32').checked = settings.f32;
+  $('optRefine').checked = settings.refine;
   for (const box of chips.querySelectorAll('input')) box.checked = settings.instruments.includes(box.value);
   $('settings').returnValue = ''; // Esc keeps the previous value otherwise, which would save
   $('settings').showModal();
@@ -854,6 +1057,7 @@ $('settings').addEventListener('close', async () => {
     model: document.querySelector('input[name=model]:checked')?.value ?? settings.model,
     token: $('optToken').value.trim(),
     f32: $('optF32').checked,
+    refine: $('optRefine').checked,
     instruments: [...chips.querySelectorAll('input:checked')].map((b) => b.value),
     lang: $('optLang').value,
     naming: $('optNaming').value,
@@ -862,6 +1066,7 @@ $('settings').addEventListener('close', async () => {
   const reload = next.model !== settings.model || next.f32 !== settings.f32 || (next.token !== settings.token && !modelInfo);
   await settingsStore.set(next);
   if (localeChanged) await applyLocale();
+showVocals();
   worker.postMessage({ type: 'instruments', names: settings.instruments });
   if (reload && settings.accepted) {
     if (capture) await stopCapture();

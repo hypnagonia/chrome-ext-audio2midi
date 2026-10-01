@@ -44,11 +44,16 @@
   "live.emptyDev": "Buka file audio untuk mencobanya.",
   "live.thisTab": "tab ini",
   "live.rollLabel": "Piano roll dari not hasil transkripsi",
+  "live.jump": "live",
+  "live.jumpTip": "Kembali ke live",
 
   "key.major": "{tonic} mayor",
   "key.minor": "{tonic} minor",
   "key.tipLive": "Perkiraan nada dasar 45 detik terakhir",
   "key.tipFull": "Perkiraan nada dasar seluruh rekaman",
+
+  "vocals.label": "vokal",
+  "vocals.tip": "Lagu ini ada vokalnya: dengarkan juga melodi vokal. Biarkan mati untuk instrumental.",
 
   "zoom.group": "Zoom",
   "zoom.in": "Perbesar",
@@ -66,8 +71,10 @@
 
   "insts.title": "instrumen",
   "insts.clear": "hapus",
-  "insts.hide": "Sembunyikan (dan bisukan) instrumen ini",
-  "insts.show": "Tampilkan (dan putar) instrumen ini",
+  "insts.mute": "M",
+  "insts.solo": "S",
+  "insts.muteTip": "Bisukan: redupkan bagian ini dan senyapkan saat pemutaran MIDI",
+  "insts.soloTip": "Solo: tampilkan dan putar hanya bagian ini (Shift+klik untuk menambah)",
 
   "dock.openFile": "buka file",
   "dock.openFileTip": "transkripsikan file audio",
@@ -96,6 +103,8 @@
   "settings.advanced": "Lanjutan",
   "settings.f32": "Presisi penuh",
   "settings.f32Desc": "Lebih lambat, memakai memori GPU dua kali lipat. Hasilnya hampir selalu sama.",
+  "settings.refine": "Sempurnakan setelah berhenti",
+  "settings.refineDesc": "Saat berhenti, byEar mendengarkan seluruh rekaman lagi agar hasilnya lebih bersih dan konsisten.",
   "settings.token": "Token Hugging Face",
   "settings.tokenHint": "(hanya perlu jika unduhan gratis tidak tersedia)",
   "settings.deleteModels": "hapus model yang sudah diunduh",
@@ -105,6 +114,8 @@
   "msg.cacheCleared": "Model yang diunduh sudah dihapus. Model akan diunduh lagi saat dimuat berikutnya.",
   "msg.backfill": "Mengisi {n} × 5 dtk yang terlewat saat mendengarkan…",
   "msg.cacheFailed": "Model tidak bisa disimpan untuk lain kali, jadi akan diunduh lagi: {error}",
+  "msg.refining": "Menyempurnakan transkripsi… {pct}%",
+  "msg.refined": "Transkripsi disempurnakan.",
 
   "err.noTab": "Tidak ada tab untuk didengarkan.",
   "err.invoke": "Chrome hanya mengizinkan byEar mendengarkan tab setelah kamu mengklik ikonnya di toolbar pada tab tersebut. Klik ikonnya, lalu tekan dengarkan lagi.",

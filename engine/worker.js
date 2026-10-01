@@ -6,6 +6,7 @@
 //   {type:'chunk'|'skip', part, seek, next, samples?}
 //   {type:'finish', part}              end of a capture session
 //   {type:'backfill', part, key, seek, next, samples}
+//   {type:'hint', names}                conditioning-only instrument hint for the following chunks
 //   {type:'abort'}                     drop everything still queued
 //   {type:'instruments', names}        applied between jobs
 // Every 'events' reply echoes `part` so the panel can tell sessions apart.
@@ -167,9 +168,12 @@ async function load({ model, token, buffer, url, f16 = true }, seq) {
   post({ type: 'ready', info: { gpu: `${engine.adapterInfo.vendor} ${engine.adapterInfo.architecture}`.trim(), f16 } });
 }
 
-/** A later chunk of the same session already waiting makes this one safe to skip. */
-const superseded = (job) => job.type === 'chunk'
-  && queue.some((j) => (j.type === 'chunk' || j.type === 'skip') && j.part === job.part);
+/**
+ * Only live chunks may be skipped (to keep up while listening), and only when a newer
+ * live chunk of the same session is already waiting. Refine and backfill chunks never are.
+ */
+const superseded = (job) => job.type === 'chunk' && job.live
+  && queue.some((j) => (j.type === 'chunk' || j.type === 'skip') && j.live && j.part === job.part);
 
 async function runJob(job) {
   if (pendingInstruments !== undefined) {
@@ -179,6 +183,9 @@ async function runJob(job) {
   switch (job.type) {
     case 'part':
       transcriber.reset();
+      return;
+    case 'hint':
+      transcriber.setHint(job.names);
       return;
     case 'finish':
       post({ type: 'events', part: job.part, seek: null, events: transcriber.finish(), final: true });
@@ -232,6 +239,7 @@ self.onmessage = ({ data }) => {
       else pendingInstruments = data.names;
       break;
     case 'part':
+    case 'hint':
     case 'chunk':
     case 'skip':
     case 'finish':

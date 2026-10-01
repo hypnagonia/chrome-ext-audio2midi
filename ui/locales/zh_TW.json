@@ -44,11 +44,16 @@
   "live.emptyDev": "開啟一個音訊檔案來試試看。",
   "live.thisTab": "這個分頁",
   "live.rollLabel": "轉譜音符的鋼琴捲軸",
+  "live.jump": "即時",
+  "live.jumpTip": "回到即時",
 
   "key.major": "{tonic} 大調",
   "key.minor": "{tonic} 小調",
   "key.tipLive": "最近 45 秒的推測調性",
   "key.tipFull": "整段錄音的推測調性",
+
+  "vocals.label": "人聲",
+  "vocals.tip": "這首歌有演唱：也辨識人聲旋律。純音樂請保持關閉。",
 
   "zoom.group": "縮放",
   "zoom.in": "放大",
@@ -66,8 +71,10 @@
 
   "insts.title": "樂器",
   "insts.clear": "清除",
-  "insts.hide": "隱藏（並靜音）這個樂器",
-  "insts.show": "顯示（並播放）這個樂器",
+  "insts.mute": "M",
+  "insts.solo": "S",
+  "insts.muteTip": "靜音：淡化此聲部，並在 MIDI 播放時靜音",
+  "insts.soloTip": "獨奏：只顯示並播放此聲部（Shift+點擊可加入更多）",
 
   "dock.openFile": "開啟檔案",
   "dock.openFileTip": "將音訊檔案轉譜",
@@ -96,6 +103,8 @@
   "settings.advanced": "進階",
   "settings.f32": "完整精度",
   "settings.f32Desc": "速度較慢，會使用兩倍的 GPU 記憶體。結果幾乎總是相同。",
+  "settings.refine": "停止後優化",
+  "settings.refineDesc": "停止後，byEar 會重新聆聽整段錄音，結果更乾淨、更一致。",
   "settings.token": "Hugging Face 權杖",
   "settings.tokenHint": "（只有在免費下載無法使用時才需要）",
   "settings.deleteModels": "刪除已下載的模型",
@@ -105,6 +114,8 @@
   "msg.cacheCleared": "已刪除下載的模型。下次載入時會重新下載。",
   "msg.backfill": "正在補上聆聽時略過的 {n} × 5 秒…",
   "msg.cacheFailed": "無法儲存模型供下次使用，因此會重新下載：{error}",
+  "msg.refining": "正在優化扒譜… {pct}%",
+  "msg.refined": "扒譜已優化。",
 
   "err.noTab": "沒有可以聆聽的分頁。",
   "err.invoke": "Chrome 規定你必須先在該分頁上按一下工具列中的 byEar 圖示，byEar 才能聆聽。請按一下圖示，然後再按一次「聆聽」。",

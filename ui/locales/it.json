@@ -44,11 +44,16 @@
   "live.emptyDev": "Apri un file audio per provarlo.",
   "live.thisTab": "questa scheda",
   "live.rollLabel": "Piano roll delle note trascritte",
+  "live.jump": "live",
+  "live.jumpTip": "Torna al live",
 
   "key.major": "{tonic} maggiore",
   "key.minor": "{tonic} minore",
   "key.tipLive": "Tonalità stimata degli ultimi 45 secondi",
   "key.tipFull": "Tonalità stimata dell'intera registrazione",
+
+  "vocals.label": "voce",
+  "vocals.tip": "Il brano è cantato: ascolta anche la linea vocale. Lascialo spento per gli strumentali.",
 
   "zoom.group": "Zoom",
   "zoom.in": "Aumenta zoom",
@@ -66,8 +71,10 @@
 
   "insts.title": "strumenti",
   "insts.clear": "cancella",
-  "insts.hide": "Nascondi (e silenzia) questo strumento",
-  "insts.show": "Mostra (e riproduci) questo strumento",
+  "insts.mute": "M",
+  "insts.solo": "S",
+  "insts.muteTip": "Muto: attenua questa parte e la silenzia nella riproduzione MIDI",
+  "insts.soloTip": "Solo: mostra e suona solo questa parte (Maiusc+clic per aggiungerne altre)",
 
   "dock.openFile": "apri file",
   "dock.openFileTip": "trascrivi un file audio",
@@ -96,6 +103,8 @@
   "settings.advanced": "Avanzate",
   "settings.f32": "Precisione completa",
   "settings.f32Desc": "Più lento, usa il doppio della memoria della GPU. I risultati sono quasi sempre identici.",
+  "settings.refine": "Migliora allo stop",
+  "settings.refineDesc": "Quando premi stop, byEar riascolta tutta la registrazione per un risultato più pulito e coerente.",
   "settings.token": "Token di Hugging Face",
   "settings.tokenHint": "(serve solo se il download gratuito non è disponibile)",
   "settings.deleteModels": "elimina i modelli scaricati",
@@ -105,6 +114,8 @@
   "msg.cacheCleared": "Modelli scaricati eliminati. Il modello verrà scaricato di nuovo al prossimo caricamento.",
   "msg.backfill": "Completamento di {n} × 5 s saltati durante l'ascolto…",
   "msg.cacheFailed": "Impossibile salvare il modello per la prossima volta, quindi verrà scaricato di nuovo: {error}",
+  "msg.refining": "Miglioramento della trascrizione… {pct}%",
+  "msg.refined": "Trascrizione migliorata.",
 
   "err.noTab": "Non c'è nessuna scheda da ascoltare.",
   "err.invoke": "Chrome permette a byEar di ascoltare una scheda solo dopo che hai fatto clic sulla sua icona nella barra degli strumenti in quella scheda. Fai clic sull'icona, poi premi di nuovo ascolta.",

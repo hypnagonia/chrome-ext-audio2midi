@@ -44,11 +44,16 @@
   "live.emptyDev": "Denemek için bir ses dosyası açın.",
   "live.thisTab": "bu sekme",
   "live.rollLabel": "Çıkarılan notaların piyano rulosu",
+  "live.jump": "canlı",
+  "live.jumpTip": "Canlıya dön",
 
   "key.major": "{tonic} majör",
   "key.minor": "{tonic} minör",
   "key.tipLive": "Son 45 saniyenin tahmini tonu",
   "key.tipFull": "Tüm kaydın tahmini tonu",
+
+  "vocals.label": "vokal",
+  "vocals.tip": "Şarkıda vokal var: vokal partisini de dinle. Enstrümantallerde kapalı bırakın.",
 
   "zoom.group": "Yakınlaştırma",
   "zoom.in": "Yakınlaştır",
@@ -66,8 +71,10 @@
 
   "insts.title": "enstrümanlar",
   "insts.clear": "temizle",
-  "insts.hide": "Bu enstrümanı gizle (ve sessize al)",
-  "insts.show": "Bu enstrümanı göster (ve çal)",
+  "insts.mute": "M",
+  "insts.solo": "S",
+  "insts.muteTip": "Sessiz: bu partiyi soluklaştırır ve MIDI çalmada susturur",
+  "insts.soloTip": "Solo: yalnızca bu partiyi gösterir ve çalar (eklemek için Shift+tık)",
 
   "dock.openFile": "dosya aç",
   "dock.openFileTip": "bir ses dosyasını notaya dök",
@@ -96,6 +103,8 @@
   "settings.advanced": "Gelişmiş",
   "settings.f32": "Tam hassasiyet",
   "settings.f32Desc": "Daha yavaştır, iki kat GPU belleği kullanır. Sonuçlar neredeyse her zaman aynıdır.",
+  "settings.refine": "Durdurunca iyileştir",
+  "settings.refineDesc": "Durdurduğunuzda byEar tüm kaydı yeniden dinler; sonuç daha temiz ve tutarlı olur.",
   "settings.token": "Hugging Face token'ı",
   "settings.tokenHint": "(yalnızca ücretsiz indirme kullanılamıyorsa gerekir)",
   "settings.deleteModels": "indirilen modelleri sil",
@@ -105,6 +114,8 @@
   "msg.cacheCleared": "İndirilen modeller silindi. Model bir sonraki yüklemede yeniden indirilecek.",
   "msg.backfill": "Dinleme sırasında atlanan {n} × 5 sn dolduruluyor…",
   "msg.cacheFailed": "Model sonraki sefer için kaydedilemedi, bu yüzden yeniden indirilecek: {error}",
+  "msg.refining": "Transkripsiyon iyileştiriliyor… %{pct}",
+  "msg.refined": "Transkripsiyon iyileştirildi.",
 
   "err.noTab": "Dinlenecek bir sekme yok.",
   "err.invoke": "Chrome, byEar'ın bir sekmeyi dinlemesine ancak o sekmedeyken araç çubuğundaki simgesine tıkladıktan sonra izin verir. Simgeye tıklayın, ardından tekrar dinle düğmesine basın.",

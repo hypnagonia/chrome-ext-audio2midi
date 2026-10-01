@@ -44,11 +44,16 @@
   "live.emptyDev": "Abre un archivo de audio para probarlo.",
   "live.thisTab": "esta pestaña",
   "live.rollLabel": "Piano roll de las notas transcritas",
+  "live.jump": "en vivo",
+  "live.jumpTip": "Volver al directo",
 
   "key.major": "{tonic} mayor",
   "key.minor": "{tonic} menor",
   "key.tipLive": "Tonalidad estimada de los últimos 45 segundos",
   "key.tipFull": "Tonalidad estimada de toda la grabación",
+
+  "vocals.label": "voz",
+  "vocals.tip": "La canción tiene voz: escucha también la melodía vocal. Déjalo apagado en instrumentales.",
 
   "zoom.group": "Zoom",
   "zoom.in": "Acercar",
@@ -66,8 +71,10 @@
 
   "insts.title": "instrumentos",
   "insts.clear": "borrar",
-  "insts.hide": "Ocultar (y silenciar) este instrumento",
-  "insts.show": "Mostrar (y reproducir) este instrumento",
+  "insts.mute": "M",
+  "insts.solo": "S",
+  "insts.muteTip": "Silenciar: atenúa esta parte y la calla en la reproducción MIDI",
+  "insts.soloTip": "Solo: muestra y reproduce solo esta parte (Mayús+clic para añadir más)",
 
   "dock.openFile": "abrir archivo",
   "dock.openFileTip": "transcribir un archivo de audio",
@@ -96,6 +103,8 @@
   "settings.advanced": "Avanzado",
   "settings.f32": "Precisión completa",
   "settings.f32Desc": "Más lento, usa el doble de memoria de la GPU. Los resultados casi siempre son idénticos.",
+  "settings.refine": "Mejorar al detener",
+  "settings.refineDesc": "Al pulsar detener, byEar vuelve a escuchar toda la grabación para un resultado más limpio y coherente.",
   "settings.token": "Token de Hugging Face",
   "settings.tokenHint": "(solo hace falta si la descarga gratuita no está disponible)",
   "settings.deleteModels": "eliminar modelos descargados",
@@ -105,6 +114,8 @@
   "msg.cacheCleared": "Se eliminaron los modelos descargados. El modelo se descargará de nuevo la próxima vez que se cargue.",
   "msg.backfill": "Completando {n} × 5 s que se omitieron durante la escucha…",
   "msg.cacheFailed": "No se pudo guardar el modelo para la próxima vez, así que se descargará de nuevo: {error}",
+  "msg.refining": "Mejorando la transcripción… {pct}%",
+  "msg.refined": "Transcripción mejorada.",
 
   "err.noTab": "No hay ninguna pestaña que escuchar.",
   "err.invoke": "Chrome solo deja que byEar escuche una pestaña después de que hagas clic en su icono de la barra de herramientas en esa pestaña. Haz clic en el icono y vuelve a pulsar escuchar.",

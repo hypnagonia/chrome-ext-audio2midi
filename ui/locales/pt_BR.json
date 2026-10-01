@@ -44,11 +44,16 @@
   "live.emptyDev": "Abra um arquivo de áudio para experimentar.",
   "live.thisTab": "esta aba",
   "live.rollLabel": "Piano roll das notas transcritas",
+  "live.jump": "ao vivo",
+  "live.jumpTip": "Voltar ao ao vivo",
 
   "key.major": "{tonic} maior",
   "key.minor": "{tonic} menor",
   "key.tipLive": "Tom estimado dos últimos 45 segundos",
   "key.tipFull": "Tom estimado da gravação inteira",
+
+  "vocals.label": "voz",
+  "vocals.tip": "A música tem voz: ouça também a linha vocal. Deixe desligado em instrumentais.",
 
   "zoom.group": "Zoom",
   "zoom.in": "Aumentar zoom",
@@ -66,8 +71,10 @@
 
   "insts.title": "instrumentos",
   "insts.clear": "limpar",
-  "insts.hide": "Ocultar (e silenciar) este instrumento",
-  "insts.show": "Mostrar (e tocar) este instrumento",
+  "insts.mute": "M",
+  "insts.solo": "S",
+  "insts.muteTip": "Mudo: esmaece esta parte e a silencia na reprodução MIDI",
+  "insts.soloTip": "Solo: mostra e toca só esta parte (Shift+clique para adicionar mais)",
 
   "dock.openFile": "abrir arquivo",
   "dock.openFileTip": "transcrever um arquivo de áudio",
@@ -96,6 +103,8 @@
   "settings.advanced": "Avançado",
   "settings.f32": "Precisão total",
   "settings.f32Desc": "Mais lento, usa o dobro da memória da GPU. Os resultados quase sempre são idênticos.",
+  "settings.refine": "Melhorar ao parar",
+  "settings.refineDesc": "Ao parar, o byEar ouve a gravação inteira de novo para um resultado mais limpo e consistente.",
   "settings.token": "Token do Hugging Face",
   "settings.tokenHint": "(só é necessário se o download gratuito estiver indisponível)",
   "settings.deleteModels": "excluir modelos baixados",
@@ -105,6 +114,8 @@
   "msg.cacheCleared": "Os modelos baixados foram excluídos. O modelo será baixado de novo na próxima vez que carregar.",
   "msg.backfill": "Preenchendo {n} × 5 s que foram pulados durante a escuta…",
   "msg.cacheFailed": "Não foi possível salvar o modelo para a próxima vez, então ele será baixado de novo: {error}",
+  "msg.refining": "Melhorando a transcrição… {pct}%",
+  "msg.refined": "Transcrição melhorada.",
 
   "err.noTab": "Não há nenhuma aba para ouvir.",
   "err.invoke": "O Chrome só deixa o byEar ouvir uma aba depois que você clica no ícone dele na barra de ferramentas nessa aba. Clique no ícone e depois em ouvir de novo.",

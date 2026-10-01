@@ -44,11 +44,16 @@
   "live.emptyDev": "打开一个音频文件试试看。",
   "live.thisTab": "此标签页",
   "live.rollLabel": "转录音符的钢琴卷帘",
+  "live.jump": "实时",
+  "live.jumpTip": "回到实时",
 
   "key.major": "{tonic} 大调",
   "key.minor": "{tonic} 小调",
   "key.tipLive": "最近 45 秒的估计调性",
   "key.tipFull": "整段录音的估计调性",
+
+  "vocals.label": "人声",
+  "vocals.tip": "这首歌有演唱：也识别人声旋律。纯音乐请保持关闭。",
 
   "zoom.group": "缩放",
   "zoom.in": "放大",
@@ -66,8 +71,10 @@
 
   "insts.title": "乐器",
   "insts.clear": "清除",
-  "insts.hide": "隐藏（并静音）此乐器",
-  "insts.show": "显示（并播放）此乐器",
+  "insts.mute": "M",
+  "insts.solo": "S",
+  "insts.muteTip": "静音：淡化此声部，并在 MIDI 播放时静音",
+  "insts.soloTip": "独奏：只显示并播放此声部（Shift+点击可添加更多）",
 
   "dock.openFile": "打开文件",
   "dock.openFileTip": "转录音频文件",
@@ -96,6 +103,8 @@
   "settings.advanced": "高级",
   "settings.f32": "全精度",
   "settings.f32Desc": "速度更慢，占用两倍 GPU 显存。结果几乎总是相同。",
+  "settings.refine": "停止后优化",
+  "settings.refineDesc": "停止后，byEar 会重新聆听整段录音，结果更干净、更一致。",
   "settings.token": "Hugging Face 令牌",
   "settings.tokenHint": "（仅在免费下载不可用时需要）",
   "settings.deleteModels": "删除已下载的模型",
@@ -105,6 +114,8 @@
   "msg.cacheCleared": "已删除下载的模型。下次加载时会重新下载。",
   "msg.backfill": "正在补全聆听时跳过的 {n} × 5 秒…",
   "msg.cacheFailed": "无法保存模型供下次使用，下次将重新下载：{error}",
+  "msg.refining": "正在优化扒谱… {pct}%",
+  "msg.refined": "扒谱已优化。",
 
   "err.noTab": "没有可聆听的标签页。",
   "err.invoke": "Chrome 要求你先在该标签页上点击工具栏中的 byEar 图标，byEar 才能聆听。请点击图标，然后再次点击“聆听”。",

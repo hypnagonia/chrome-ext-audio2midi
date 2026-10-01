@@ -39,7 +39,7 @@ try {
   log(`prefill logits maxAbsErr=${maxErr.toExponential(2)} (|ref|max=${refMax.toFixed(2)})`);
 
   // 2. full transcription vs reference token stream
-  const tr = new Transcriber(engine, mel);
+  const tr = new Transcriber(engine, mel, { autoLevel: false }); // compare raw model output
   tr.setInstruments(null);
   const n = Math.ceil(audio.length / SEGMENT_SAMPLES);
   const toks = [];

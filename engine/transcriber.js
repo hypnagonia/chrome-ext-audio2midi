@@ -3,19 +3,31 @@
 
 import { NoteDecoder } from './decoder.js';
 import { MAX_PREFILL } from './gpu.js';
+import { autoLevel } from './level.js';
 import { instrumentConditionRows, tieSectionTokens, forbiddenTokens, tokenId } from './vocab.js';
 
 export class Transcriber {
-  constructor(engine, mel) {
+  /** opts.autoLevel (default true): boost quiet chunks before the model hears them. */
+  constructor(engine, mel, { autoLevel: level = true } = {}) {
     this.engine = engine;
     this.mel = mel;
-    this.instruments = null;
+    this.level = level ? autoLevel : (x) => x;
+    this.instruments = null; // hard restriction (also conditions the model)
+    this.hint = null; // conditioning only: tells the model what to expect, forbids nothing
     this.reset();
   }
 
   reset() {
     this.decoder = new NoteDecoder();
     this.chunks = 0;
+  }
+
+  /**
+   * Instruments the model should expect, without forbidding others. This is MuScriptor's
+   * own conditioning input; e.g. a "voice" hint recovers vocals the model otherwise drops.
+   */
+  setHint(names) {
+    this.hint = names && names.length ? names : null;
   }
 
   /** Restrict (and condition) transcription to these instrument names; null for any. */
@@ -35,8 +47,8 @@ export class Transcriber {
     const first = this.chunks++ === 0;
     if (!samples) return { events, stats: null };
     const t0 = performance.now();
-    const mel = this.mel.compute(samples);
-    const instRows = instrumentConditionRows(this.instruments);
+    const mel = this.mel.compute(this.level(samples));
+    const instRows = instrumentConditionRows(this.instruments ?? this.hint);
     let prompt = [];
     if (!first) {
       // The tie prologue must fit the prefill pass. If an unusual pile of held notes
@@ -71,8 +83,8 @@ export class Transcriber {
     const decoder = new NoteDecoder();
     const events = decoder.boundary(seekTime, nextSeekTime);
     const out = await this.engine.generate({
-      mel: this.mel.compute(samples),
-      instRows: instrumentConditionRows(this.instruments),
+      mel: this.mel.compute(this.level(samples)),
+      instRows: instrumentConditionRows(this.instruments ?? this.hint),
     });
     for (const t of out.tokens) events.push(...decoder.token(t));
     decoder.boundary(nextSeekTime, null);

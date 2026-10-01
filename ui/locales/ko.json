@@ -44,11 +44,16 @@
   "live.emptyDev": "오디오 파일을 열어 사용해 보세요.",
   "live.thisTab": "이 탭",
   "live.rollLabel": "채보된 음표의 피아노 롤",
+  "live.jump": "라이브",
+  "live.jumpTip": "라이브로 돌아가기",
 
   "key.major": "{tonic} 메이저",
   "key.minor": "{tonic} 마이너",
   "key.tipLive": "최근 45초의 추정 키",
   "key.tipFull": "전체 녹음의 추정 키",
+
+  "vocals.label": "보컬",
+  "vocals.tip": "노래가 있는 곡: 보컬 멜로디도 들어요. 연주곡에서는 끄세요.",
 
   "zoom.group": "확대/축소",
   "zoom.in": "확대",
@@ -66,8 +71,10 @@
 
   "insts.title": "악기",
   "insts.clear": "지우기",
-  "insts.hide": "이 악기 숨기기 (음소거)",
-  "insts.show": "이 악기 표시 (재생)",
+  "insts.mute": "M",
+  "insts.solo": "S",
+  "insts.muteTip": "뮤트: 이 파트를 흐리게 하고 MIDI 재생에서 소리를 끕니다",
+  "insts.soloTip": "솔로: 이 파트만 표시하고 재생합니다 (Shift+클릭으로 추가)",
 
   "dock.openFile": "파일 열기",
   "dock.openFileTip": "오디오 파일 채보하기",
@@ -96,6 +103,8 @@
   "settings.advanced": "고급",
   "settings.f32": "최대 정밀도",
   "settings.f32Desc": "더 느리고 GPU 메모리를 두 배로 사용합니다. 결과는 거의 항상 같습니다.",
+  "settings.refine": "정지 후 개선",
+  "settings.refineDesc": "정지하면 byEar가 녹음 전체를 다시 들어 더 깔끔하고 일관된 결과를 만듭니다.",
   "settings.token": "Hugging Face 토큰",
   "settings.tokenHint": "(무료 다운로드를 사용할 수 없을 때만 필요)",
   "settings.deleteModels": "다운로드한 모델 삭제",
@@ -105,6 +114,8 @@
   "msg.cacheCleared": "다운로드한 모델을 삭제했습니다. 다음에 불러올 때 모델을 다시 다운로드합니다.",
   "msg.backfill": "듣는 동안 건너뛴 {n} × 5초를 채우는 중…",
   "msg.cacheFailed": "다음에 쓸 수 있도록 모델을 저장하지 못해 다시 다운로드합니다: {error}",
+  "msg.refining": "채보를 개선하는 중… {pct}%",
+  "msg.refined": "채보를 개선했습니다.",
 
   "err.noTab": "들을 수 있는 탭이 없습니다.",
   "err.invoke": "Chrome에서는 해당 탭에서 툴바의 byEar 아이콘을 클릭해야 탭 소리를 들을 수 있습니다. 아이콘을 클릭한 뒤 다시 듣기를 누르세요.",

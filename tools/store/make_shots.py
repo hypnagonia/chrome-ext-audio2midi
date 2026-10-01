@@ -26,11 +26,11 @@ REVIEW = """(async () => {
   return d.getElementById('timeLabel').textContent;
 })()"""
 
-# Hide the bass (a click on its row) so the roll zooms onto the guitar and every note gets a label.
+# Mute the bass so the roll zooms onto the guitar and every note gets a label.
 HIDE_BASS = """(async () => {
   const d = panel().document;
   const row = [...d.querySelectorAll('.inst')].find((r) => /bass/i.test(r.textContent));
-  row?.click();
+  row?.querySelector('.mute').click();
   await new Promise((r) => setTimeout(r, 1800));
   return !!row;
 })()"""
@@ -42,8 +42,8 @@ SHOTS = [
          points=['chords for every instrument', 'the key of the song', 'private: runs on your GPU']),
     dict(name='2-instruments', after=60, rollh=150, state=dict(accepted=True, zoom=12),
          title='Every instrument, its own part.',
-         sub='Guitar, bass, piano, voice, strings and drums: each one gets its own chords or notes. Click one to hide it.',
-         points=['36 instrument types', 'chords and single lines', 'drum hits by name']),
+         sub='Guitar, bass, piano, voice, strings and drums: each one gets its own channel with its chords or notes.',
+         points=['mute and solo, like a mixer', 'chords and single lines', 'drum hits by name']),
     dict(name='3-notes', after=58, eval=HIDE_BASS, state=dict(accepted=True, zoom=5),
          title='Every note, labelled.',
          sub='Zoom into the piano roll to read each note by name and octave. Learn the part, then play it.',

@@ -44,11 +44,16 @@
   "live.emptyDev": "Otwórz plik audio, żeby wypróbować.",
   "live.thisTab": "ta karta",
   "live.rollLabel": "Piano roll z transkrybowanymi nutami",
+  "live.jump": "na żywo",
+  "live.jumpTip": "Wróć na żywo",
 
   "key.major": "{tonic}-dur",
   "key.minor": "{tonic}-moll",
   "key.tipLive": "Szacowana tonacja ostatnich 45 sekund",
   "key.tipFull": "Szacowana tonacja całego nagrania",
+
+  "vocals.label": "wokal",
+  "vocals.tip": "W utworze jest śpiew: słuchaj też linii wokalu. Zostaw wyłączone dla instrumentali.",
 
   "zoom.group": "Powiększenie",
   "zoom.in": "Powiększ",
@@ -66,8 +71,10 @@
 
   "insts.title": "instrumenty",
   "insts.clear": "wyczyść",
-  "insts.hide": "Ukryj (i wycisz) ten instrument",
-  "insts.show": "Pokaż (i odtwarzaj) ten instrument",
+  "insts.mute": "M",
+  "insts.solo": "S",
+  "insts.muteTip": "Wycisz: przygaś tę partię i wycisz ją w odtwarzaniu MIDI",
+  "insts.soloTip": "Solo: pokaż i odtwarzaj tylko tę partię (Shift+klik dodaje kolejne)",
 
   "dock.openFile": "otwórz plik",
   "dock.openFileTip": "transkrybuj plik audio",
@@ -96,6 +103,8 @@
   "settings.advanced": "Zaawansowane",
   "settings.f32": "Pełna precyzja",
   "settings.f32Desc": "Wolniej, zużywa dwa razy więcej pamięci GPU. Wyniki są prawie zawsze identyczne.",
+  "settings.refine": "Popraw po zatrzymaniu",
+  "settings.refineDesc": "Po zatrzymaniu byEar słucha całego nagrania jeszcze raz, by wynik był czystszy i spójniejszy.",
   "settings.token": "Token Hugging Face",
   "settings.tokenHint": "(potrzebny tylko, gdy darmowe pobieranie jest niedostępne)",
   "settings.deleteModels": "usuń pobrane modele",
@@ -105,6 +114,8 @@
   "msg.cacheCleared": "Usunięto pobrane modele. Model zostanie pobrany ponownie przy następnym wczytaniu.",
   "msg.backfill": "Uzupełniam {n} × 5 s pominięte podczas słuchania…",
   "msg.cacheFailed": "Nie udało się zapisać modelu na później, więc zostanie pobrany ponownie: {error}",
+  "msg.refining": "Poprawianie transkrypcji… {pct}%",
+  "msg.refined": "Transkrypcja poprawiona.",
 
   "err.noTab": "Nie ma karty do słuchania.",
   "err.invoke": "Chrome pozwala byEar słuchać karty dopiero po kliknięciu ikony rozszerzenia na pasku narzędzi w tej karcie. Kliknij ikonę, a potem ponownie naciśnij „słuchaj”.",
