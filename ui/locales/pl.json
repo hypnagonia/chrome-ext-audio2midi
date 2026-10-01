@@ -127,6 +127,7 @@
   "msg.cacheFailed": "Nie udało się zapisać modelu na później, więc zostanie pobrany ponownie: {error}",
   "msg.refining": "Poprawianie transkrypcji… {pct}%",
   "msg.refined": "Transkrypcja poprawiona.",
+  "msg.refineFailed": "Nie udało się poprawić transkrypcji, więc zostają nuty na żywo.",
 
   "err.noTab": "Nie ma karty do słuchania.",
   "err.invoke": "Chrome pozwala byEar słuchać karty dopiero po kliknięciu ikony rozszerzenia na pasku narzędzi w tej karcie. Kliknij ikonę, a potem ponownie naciśnij „słuchaj”.",

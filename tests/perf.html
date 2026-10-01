@@ -1,0 +1,63 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>byEar performance</title>
+<link rel="stylesheet" href="../sidepanel.css">
+<body style="width:420px">
+<canvas id="roll" class="roll" style="width:420px;height:340px"></canvas>
+<pre id="log" style="color:#eee"></pre>
+<script type="module">
+// Synthetic 10-minute session, 5 instruments, ~20k notes: time the panel's hot paths.
+import { PianoRoll } from '../ui/pianoroll.js';
+import { chordSegments, estimateKey } from '../music/chords.js';
+import { Fingering } from '../music/tab.js';
+import { setLanguage } from '../ui/i18n.js';
+const log = (s) => { document.getElementById('log').textContent += s + '\n'; console.log(s); };
+await setLanguage('en');
+let seed = 7;
+const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+const SONG = +(new URLSearchParams(location.search).get('min') || 10) * 60;
+const parts = {
+  acoustic_guitar: { rate: 6, lo: 45, hi: 76, chord: 4 },
+  electric_bass: { rate: 3, lo: 28, hi: 48, chord: 1 },
+  voice: { rate: 2.5, lo: 55, hi: 76, chord: 1 },
+  acoustic_piano: { rate: 5, lo: 40, hi: 84, chord: 3 },
+  drums: { rate: 8, lo: 35, hi: 51, chord: 1 },
+};
+const byInst = new Map();
+const notes = [];
+for (const [inst, p] of Object.entries(parts)) {
+  const list = [];
+  for (let t = 0; t < SONG; t += 1 / p.rate) {
+    const k = 1 + Math.floor(rnd() * p.chord);
+    for (let j = 0; j < k; j++) {
+      const n = { instrument: inst, pitch: p.lo + Math.floor(rnd() * (p.hi - p.lo)), start: t + rnd() * 0.01, end: t + 0.1 + rnd() * 0.8 };
+      list.push(n); notes.push(n);
+    }
+  }
+  list.sort((a, b) => a.start - b.start);
+  byInst.set(inst, list);
+}
+log(`session: ${SONG / 60} min, ${notes.length} notes`);
+const time = (label, fn, reps = 1) => { const t0 = performance.now(); for (let i = 0; i < reps; i++) fn(); const ms = (performance.now() - t0) / reps; log(`${label.padEnd(44)} ${ms.toFixed(2)} ms`); return ms; };
+
+const pitched = notes.filter((n) => n.instrument !== 'drums');
+time('live chords (30 s window, all parts)', () => chordSegments(pitched.filter((n) => n.start > SONG - 30), SONG - 30, SONG), 5);
+time('review chords (whole song, all parts)', () => chordSegments(pitched, 0, SONG));
+time('key (45 s)', () => estimateKey(pitched, SONG - 45, SONG), 10);
+const fg = new Fingering();
+time('whole-song fingering (guitar, Viterbi)', () => fg.optimize('acoustic_guitar', byInst.get('acoustic_guitar')));
+time('whole-song fingering (bass)', () => fg.optimize('electric_bass', byInst.get('electric_bass')));
+const live = new Fingering();
+time('live fingering, 12 s window (guitar)', () => live.assign('acoustic_guitar', byInst.get('acoustic_guitar'), 300, 312), 5);
+
+const roll = new PianoRoll(document.getElementById('roll'));
+const state = (center) => ({ notes, now: SONG, done: SONG, audible: () => true, chords: chordSegments(pitched.filter((n) => n.start > center - 30 && n.start < center + 30), center - 30, center + 30), flats: false, playhead: center, center, instruments: [...byInst.keys()], byInst, label: (x) => x });
+for (const w of [8, 60]) {
+  roll.window = w;
+  roll.mode = 'roll';
+  time(`roll draw, ${w} s view (per frame)`, () => roll.draw(state(300)), 30);
+}
+roll.mode = 'tab'; roll.window = 8;
+time('tab draw, 8 s view (per frame)', () => roll.draw(state(300)), 30);
+window.testDone = true;
+</script>

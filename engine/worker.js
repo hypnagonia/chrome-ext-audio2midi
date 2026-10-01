@@ -166,6 +166,7 @@ async function load({ model, token, buffer, url, f16 = true, autoLevel = true },
   transcriber.setInstruments(pendingInstruments ?? null);
   pendingInstruments = undefined;
   post({ type: 'ready', info: { gpu: `${engine.adapterInfo.vendor} ${engine.adapterInfo.architecture}`.trim(), f16 } });
+  pump(); // jobs that arrived while loading
 }
 
 /**
@@ -173,7 +174,7 @@ async function load({ model, token, buffer, url, f16 = true, autoLevel = true },
  * live chunk of the same session is already waiting. Refine and backfill chunks never are.
  */
 const superseded = (job) => job.type === 'chunk' && job.live
-  && queue.some((j) => (j.type === 'chunk' || j.type === 'skip') && j.live && j.part === job.part);
+  && queue.some((j) => j.type === 'chunk' && j.live && j.part === job.part);
 
 async function runJob(job) {
   if (pendingInstruments !== undefined) {
@@ -200,7 +201,8 @@ async function runJob(job) {
       // Falling behind: skip this chunk (its notes end at the chunk start) and catch up.
       const dropped = superseded(job);
       const r = await transcriber.processChunk(job.type === 'chunk' && !dropped ? job.samples : null, job.seek, job.next);
-      post({ type: 'events', part: job.part, seek: job.seek, events: r.events, stats: r.stats, dropped, backlog: queue.length });
+      if (r.failed) post({ type: 'error', message: r.error?.message || String(r.error), code: r.error?.code ?? null });
+      post({ type: 'events', part: job.part, seek: job.seek, events: r.events, stats: r.stats, dropped, failed: !!r.failed, backlog: queue.length });
     }
   }
 }
@@ -215,8 +217,8 @@ function pump() {
       } catch (e) {
         post({ type: 'error', message: e.message || String(e), code: e.code ?? null });
         // Keep the panel's bookkeeping consistent even when a job fails.
-        if (job.type === 'backfill') post({ type: 'events', part: job.part, seek: null, events: [], backfill: job.key });
-        if (job.type === 'chunk' || job.type === 'skip') post({ type: 'events', part: job.part, seek: job.seek, events: [] });
+        if (job.type === 'backfill') post({ type: 'events', part: job.part, seek: null, events: [], backfill: job.key, failed: true });
+        if (job.type === 'chunk' || job.type === 'skip') post({ type: 'events', part: job.part, seek: job.seek, events: [], failed: true });
       }
     }
   })().finally(() => { pumping = null; });
@@ -231,9 +233,13 @@ self.onmessage = ({ data }) => {
       });
       break;
     }
-    case 'abort':
+    case 'abort': {
+      // {parts: [...]} drops only those sessions' jobs (e.g. a cancelled refine)
+      const keep = data.parts ? queue.filter((j) => !data.parts.includes(j.part)) : [];
       queue.length = 0;
+      queue.push(...keep);
       break;
+    }
     case 'instruments':
       if (transcriber && !pumping) transcriber.setInstruments(data.names);
       else pendingInstruments = data.names;

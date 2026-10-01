@@ -103,6 +103,7 @@ let download = null; // {t0, loaded0} for the ETA
 function loadModel(extra = {}) {
   player.pause();
   cancelRefine();
+  session.backfilling = 0; // the worker drops queued jobs on load
   loading = true;
   modelInfo = null;
   download = null;
@@ -205,6 +206,7 @@ const session = {
   droppedSeeks: [], // [{part, seek}] chunks skipped live, transcribed once the session is final
   backfilling: 0,
   byInst: new Map(), // instrument -> notes, for the instrument rows
+  version: 0, // bumps whenever notes change (chord cache)
   refine: null, // {parts:Set, runs, chunks, done, notes:Map} while re-transcribing after stop
   ignoreParts: new Set(), // sessions whose late results must be dropped (cancelled refine)
   selected: null, // the note clicked last (Alt+arrows change its pitch)
@@ -220,6 +222,7 @@ function selectNote(n) {
 }
 
 function afterEdit() {
+  session.version++;
   roll.dirty = true;
   if (reviewing()) enterReview(); else analyse();
   renderPanel();
@@ -233,6 +236,8 @@ function transposeSelected(semis) {
   if (to === n.pitch) return;
   session.edits.push({ instrument: n.instrument, start: n.start, from: n.pitch, to });
   roll.fingering.forget(n, n.instrument);
+  roll.lowCache?.delete(n.instrument); // the part's range (and so its tuning) may change
+  delete n.forcedOpen;
   n.pitch = to;
   player.preview(n);
   afterEdit();
@@ -244,8 +249,7 @@ function moveSelectedString(dir) {
   if (!n || n.instrument === 'drums') return;
   const pos = roll.moveString(n, session.byInst.get(n.instrument), dir);
   if (!pos) return;
-  n.forcedString = pos.string; // the whole-song fingering keeps it
-  session.edits.push({ instrument: n.instrument, start: n.start, from: n.pitch, to: n.pitch, string: pos.string });
+  session.edits.push({ instrument: n.instrument, start: n.start, from: n.pitch, to: n.pitch, open: n.forcedOpen });
   player.preview(n);
   roll.dirty = true;
 }
@@ -253,9 +257,12 @@ function moveSelectedString(dir) {
 function deleteSelected() {
   const n = session.selected;
   if (!n) return;
-  for (const [k, v] of session.notes) if (v === n) { session.notes.delete(k); break; }
+  let found = false;
+  for (const [k, v] of session.notes) if (v === n) { session.notes.delete(k); found = true; break; }
+  if (!found) { selectNote(null); return; } // a note from before a Clear/refine: nothing to delete
   const list = session.byInst.get(n.instrument);
-  list?.splice(list.indexOf(n), 1);
+  const i = list?.indexOf(n) ?? -1;
+  if (i >= 0) list.splice(i, 1);
   if (list && !list.length) session.byInst.delete(n.instrument);
   session.edits.push({ instrument: n.instrument, start: n.start, from: n.pitch, deleted: true });
   session.selected = null;
@@ -264,16 +271,19 @@ function deleteSelected() {
 
 /** After refine swaps the notes in, apply the user's corrections to the new notes. */
 function reapplyEdits() {
+  const used = new Set();
   for (const e of session.edits) {
     const list = session.byInst.get(e.instrument) || [];
-    const n = list.find((m) => m.pitch === e.from && Math.abs(m.start - e.start) < 0.06);
+    const n = list.find((m) => !used.has(m) && m.pitch === e.from && Math.abs(m.start - e.start) < 0.06);
     if (!n) continue;
+    used.add(n);
     if (e.deleted) {
       for (const [k, v] of session.notes) if (v === n) { session.notes.delete(k); break; }
       list.splice(list.indexOf(n), 1);
+      if (!list.length) session.byInst.delete(e.instrument);
     } else {
       n.pitch = e.to;
-      if (e.string != null) n.forcedString = e.string; // the whole-song fingering keeps it
+      if (e.open != null) n.forcedOpen = e.open; // the whole-song fingering keeps the string
     }
   }
 }
@@ -295,7 +305,17 @@ function lineup() {
 }
 
 /** Re-transcribe the recording with the session's line-up as a hint, then swap the notes in. */
-async function startRefine() {
+/** Starts refining when it is safe; returns false when it isn't (then live notes stay). */
+function startRefine() {
+  // Not while listening (it would replace notes mid-capture), not while chunks are being
+  // filled in, and not on a capped recording (it doesn't cover the whole session).
+  const complete = session.audio.length * CHUNK_SEC < MAX_RECORDING_SEC;
+  if (!settings.refine || capture || !session.audio.length || !complete || session.backfilling) return false;
+  refineRun();
+  return true;
+}
+
+async function refineRun() {
   cancelRefine();
   const segs = [...session.audio].sort((a, b) => a.seek - b.seek);
   if (!segs.length) return;
@@ -305,7 +325,7 @@ async function startRefine() {
     const run = runs[runs.length - 1];
     if (run && Math.abs(run[run.length - 1].seek + CHUNK_SEC - seg.seek) < 1e-6) run.push(seg); else runs.push([seg]);
   }
-  const r = { parts: new Set(), runs: runs.length, chunks: segs.length, done: 0, notes: new Map() };
+  const r = { parts: new Set(), runs: runs.length, chunks: segs.length, done: 0, notes: new Map(), failed: false };
   session.refine = r;
   banner(t('msg.refining', { pct: 0 }), 'info');
   for (const run of runs) {
@@ -327,6 +347,7 @@ async function startRefine() {
 
 function onRefineEvents(msg) {
   const r = session.refine;
+  if (msg.failed) r.failed = true;
   for (const ev of msg.events) {
     const k = `${msg.part}:${ev.index}`;
     if (ev.type === 'start') r.notes.set(k, { instrument: ev.instrument, pitch: ev.pitch, start: ev.time, end: null });
@@ -336,9 +357,16 @@ function onRefineEvents(msg) {
     r.done++;
     banner(t('msg.refining', { pct: Math.round((100 * r.done) / r.chunks) }), 'info');
   }
-  if (msg.final && --r.runs === 0) {
+  if (msg.final && --r.runs === 0 && r.failed) {
+    // Something went wrong on the GPU: keep the live notes rather than a partial result.
+    session.refine = null;
+    banner(t('msg.refineFailed'));
+    return;
+  }
+  if (msg.final && r.runs === 0) {
     // Swap in the refined transcription in one step.
     session.refine = null;
+    session.version++;
     session.notes = new Map();
     session.byInst.clear();
     for (const [k, n] of r.notes) addNote(k, n);
@@ -358,7 +386,7 @@ function cancelRefine() {
   if (!r) return;
   for (const p of r.parts) session.ignoreParts.add(p);
   session.refine = null;
-  worker.postMessage({ type: 'abort' });
+  worker.postMessage({ type: 'abort', parts: [...r.parts] }); // only the refine's jobs
   banner('');
 }
 const player = new Player();
@@ -377,6 +405,8 @@ function addNote(k, note) {
 
 function onEvents(msg) {
   if (msg.part < session.minPart || session.ignoreParts.has(msg.part)) return; // cleared / cancelled
+  if (session.ignoreParts.size > 64) for (const p of session.ignoreParts) if (p < session.minPart) session.ignoreParts.delete(p);
+  session.version++;
   if (session.refine?.parts.has(msg.part)) return onRefineEvents(msg);
   if (msg.backfill) {
     session.backfilling = Math.max(0, session.backfilling - 1);
@@ -397,10 +427,7 @@ function onEvents(msg) {
     session.done = Math.max(session.done, session.audioEnd ?? 0);
     // Now every chunk of this session is known: refine the whole recording, or at least
     // fill in the chunks that were skipped live.
-    // A capped recording doesn't cover the whole session: refining it would drop notes.
-    const complete = session.audio.length * CHUNK_SEC < MAX_RECORDING_SEC;
-    if (settings.refine && session.audio.length && complete) startRefine();
-    else backfill(msg.part);
+    if (!startRefine()) backfill(msg.part);
   }
   roll.dirty = true;
   if (reviewing()) enterReview();
@@ -409,23 +436,32 @@ function onEvents(msg) {
 }
 
 /** Chords and key: the last 30 s while live, the whole session for review. */
+let analysed = null; // {key} of the per-instrument chords/key last computed
+
 function analyse(full = false) {
   const end = session.done;
   const from = full ? 0 : Math.max(0, Math.floor((end - CHORD_HISTORY_SEC) / 0.25) * 0.25);
   const byInst = new Map();
-  const pitched = [];
   for (const n of session.notes.values()) {
     if ((n.end ?? end) < from) continue;
     if (!byInst.has(n.instrument)) byInst.set(n.instrument, []);
     byInst.get(n.instrument).push(n);
-    if (n.instrument !== 'drums' && audible(n.instrument)) pitched.push(n);
   }
-  session.chords.clear();
-  for (const [inst, notes] of byInst) {
-    if (inst !== 'drums' && !LINE_INSTRUMENTS.has(inst)) session.chords.set(inst, chordSegments(notes, from, end, end));
+  // Per-instrument chords and the key depend only on the notes, not on mute/solo:
+  // recompute them only when the notes changed.
+  const cacheKey = `${session.version}|${from}|${end}`;
+  if (analysed !== cacheKey) {
+    analysed = cacheKey;
+    session.chords.clear();
+    for (const [inst, notes] of byInst) {
+      if (inst !== 'drums' && !LINE_INSTRUMENTS.has(inst)) session.chords.set(inst, chordSegments(notes, from, end, end));
+    }
+    const all = [...byInst].filter(([i]) => i !== 'drums').flatMap(([, l]) => l);
+    session.key = estimateKey(all, full ? 0 : Math.max(0, end - 45), end, end) ?? session.key;
   }
-  session.ensemble = chordSegments(pitched, from, end, end);
-  session.key = estimateKey(pitched, full ? 0 : Math.max(0, end - 45), end, end) ?? session.key;
+  // The big chord follows what you hear.
+  const heard = [...byInst].filter(([i]) => i !== 'drums' && audible(i)).flatMap(([, l]) => l);
+  session.ensemble = chordSegments(heard, from, end, end);
 }
 
 // ---------------------------------------------------------------- rendering
@@ -489,8 +525,9 @@ const rowCache = new Map(); // instrument -> <li>
 
 /** Channel order: the user's drag-and-drop order, then new parts by first appearance, drums last. */
 function orderedInstruments() {
+  const first = (i) => session.byInst.get(i)[0]?.start ?? Infinity;
   const auto = [...session.byInst.keys()]
-    .sort((a, b) => (a === 'drums') - (b === 'drums') || session.byInst.get(a)[0].start - session.byInst.get(b)[0].start);
+    .sort((a, b) => (a === 'drums') - (b === 'drums') || first(a) - first(b));
   const placed = session.order.filter((i) => session.byInst.has(i));
   return [...placed, ...auto.filter((i) => !placed.includes(i))];
 }
@@ -548,7 +585,7 @@ function instrumentRow(inst, flats, T) {
       li.classList.toggle('dropAfter', after);
       li.classList.toggle('dropBefore', !after);
     });
-    li.addEventListener('dragleave', () => li.classList.remove('dropBefore', 'dropAfter'));
+    li.addEventListener('dragleave', (e) => { if (!li.contains(e.relatedTarget)) li.classList.remove('dropBefore', 'dropAfter'); });
     li.addEventListener('drop', (e) => {
       const from = e.dataTransfer.getData('text/x-byear-channel');
       const after = li.classList.contains('dropAfter');
@@ -693,7 +730,7 @@ async function startCapture(makeSource, label, cleanup, begin) {
   worker.postMessage({ type: 'part', part });
   worker.postMessage({ type: 'hint', part, names: null }); // no stale hint from an earlier refine
   const c = {
-    ctx, rate, label, cleanup, captured: 0, chunk: new Float32Array(chunkLen), fill: 0, index: 0,
+    part, ctx, rate, label, cleanup, captured: 0, chunk: new Float32Array(chunkLen), fill: 0, index: 0,
     stopped: false, pending: Promise.resolve(), level: 0, levelShown: 0, quietFor: 0,
     waiting: true, // nothing is recorded or timed until the first sound: no empty beginning
     preroll: [], // the last PREROLL_SEC of quiet audio while waiting
@@ -720,9 +757,11 @@ async function startCapture(makeSource, label, cleanup, begin) {
     const seek = session.offset + c.index * CHUNK_SEC;
     c.index++;
     const samples = c.chunk;
+    const filled = c.fill;
     c.chunk = new Float32Array(chunkLen);
     c.fill = 0;
-    record(samples, seek, rate);
+    // The last chunk is recorded without its zero padding: review ends where the music did.
+    record(final ? samples.subarray(0, filled) : samples, seek, rate);
     c.pending = c.pending.then(() => send(samples, seek, final));
     return c.pending;
   };
@@ -767,7 +806,12 @@ async function startCapture(makeSource, label, cleanup, begin) {
     append(data);
   };
   capture = c;
-  if (begin) await begin();
+  try {
+    if (begin) await begin();
+  } catch (e) {
+    await stopCapture(); // e.g. the file can't be played: don't stay "waiting" forever
+    throw e;
+  }
   const rec = $('recBtn');
   rec.classList.add('on');
   rec.disabled = false;
@@ -784,7 +828,7 @@ async function stopCapture() {
   c.stopped = true;
   capture = null;
   if (c.fill > 0.5 * c.rate) c.flush(true);
-  else c.pending = c.pending.then(() => worker.postMessage({ type: 'finish', part: session.part }));
+  else c.pending = c.pending.then(() => worker.postMessage({ type: 'finish', part: c.part }));
   c.cleanup?.();
   session.audioEnd = session.offset + c.captured / c.rate;
   const rec = $('recBtn');
@@ -923,6 +967,7 @@ $('zoomIn').addEventListener('click', () => roll.zoom(-1));
 function showView() {
   roll.mode = settings.view === 'tab' ? 'tab' : 'roll';
   roll.pitchScroll = 0;
+  roll.tabScroll = 0;
   if (roll.mode === 'tab' && roll.window > TAB_MAX_WINDOW) roll.window = TAB_MAX_WINDOW;
   showZoom(roll.window);
   roll.dirty = true;
@@ -997,7 +1042,9 @@ $('clearBtn').addEventListener('click', () => {
   session.order = [];
   session.selected = null;
   session.edits = [];
+  session.version++;
   session.viewEnd = null;
+  roll.tabScroll = 0;
   roll.pitchScroll = 0;
   session.chords.clear();
   session.ensemble = [];
@@ -1025,7 +1072,7 @@ $('vocalsBtn').addEventListener('click', async () => {
   await settingsStore.set({ vocals: !settings.vocals });
   showVocals();
   // Applies to the next chunks while listening; in review, re-transcribe with the new hint.
-  if (!capture && reviewing() && settings.refine && session.audio.length) startRefine();
+  if (!capture && reviewing()) startRefine();
 });
 
 // Review transport
@@ -1174,7 +1221,7 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     e.stopPropagation();
     transposeSelected((e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 12 : 1));
-  } else if (roll.mode === 'tab' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+  } else if (roll.mode === 'tab' && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && !targetIn(e, 'input, [role=radio], select')) {
     // Tablature: same pitch, another string (up = higher string, as drawn).
     e.preventDefault();
     e.stopPropagation();
@@ -1274,6 +1321,7 @@ $('settings').addEventListener('close', async () => {
   await settingsStore.set(next);
   if (localeChanged) await applyLocale();
   worker.postMessage({ type: 'instruments', names: settings.instruments });
+  if (session.refine) startRefine(); // redo it with the new instruments throughout
   if (reload && settings.accepted) {
     if (capture) await stopCapture();
     loadModel();
@@ -1289,6 +1337,7 @@ if (!isExtension) {
   window.__byearTime = () => player.time;
   window.__byearGaps = () => { const st = [...session.notes.values()].filter((n) => n.instrument !== 'drums').map((n) => n.start).sort((a, b) => a - b); let g = 0, at = 0; for (let i = 1; i < st.length; i++) if (st[i] - st[i - 1] > g) { g = st[i] - st[i - 1]; at = st[i - 1]; } return { longestGap: +g.toFixed(2), at: +at.toFixed(2), duration: player.duration }; };
   window.__byearSel = () => session.selected && { pitch: session.selected.pitch, instrument: session.selected.instrument };
+  window.__byearState = () => ({ refine: !!session.refine, audio: session.audio.length, backfilling: session.backfilling, capture: !!capture, setting: settings.refine, reviewing: reviewing() });
   window.__byearPos = () => session.selected && roll.fingering.get(session.selected, session.selected.instrument);
   window.__byear = () => ({
     now: session.now, done: session.done, viewEnd: session.viewEnd, t0: roll.t0, mode: roll.mode, window: roll.window, notes: session.notes.size,

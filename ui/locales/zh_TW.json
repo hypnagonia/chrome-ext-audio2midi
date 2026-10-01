@@ -127,6 +127,7 @@
   "msg.cacheFailed": "無法儲存模型供下次使用，因此會重新下載：{error}",
   "msg.refining": "正在優化扒譜… {pct}%",
   "msg.refined": "扒譜已優化。",
+  "msg.refineFailed": "無法優化扒譜，已保留即時音符。",
 
   "err.noTab": "沒有可以聆聽的分頁。",
   "err.invoke": "Chrome 規定你必須先在該分頁上按一下工具列中的 byEar 圖示，byEar 才能聆聽。請按一下圖示，然後再按一次「聆聽」。",

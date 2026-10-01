@@ -127,6 +127,7 @@
   "msg.cacheFailed": "Impossibile salvare il modello per la prossima volta, quindi verrà scaricato di nuovo: {error}",
   "msg.refining": "Miglioramento della trascrizione… {pct}%",
   "msg.refined": "Trascrizione migliorata.",
+  "msg.refineFailed": "Impossibile migliorare la trascrizione: le note dal vivo restano.",
 
   "err.noTab": "Non c'è nessuna scheda da ascoltare.",
   "err.invoke": "Chrome permette a byEar di ascoltare una scheda solo dopo che hai fatto clic sulla sua icona nella barra degli strumenti in quella scheda. Fai clic sull'icona, poi premi di nuovo ascolta.",

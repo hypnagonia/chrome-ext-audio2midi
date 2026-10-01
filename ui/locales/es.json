@@ -127,6 +127,7 @@
   "msg.cacheFailed": "No se pudo guardar el modelo para la próxima vez, así que se descargará de nuevo: {error}",
   "msg.refining": "Mejorando la transcripción… {pct}%",
   "msg.refined": "Transcripción mejorada.",
+  "msg.refineFailed": "No se pudo mejorar la transcripción; se mantienen las notas en vivo.",
 
   "err.noTab": "No hay ninguna pestaña que escuchar.",
   "err.invoke": "Chrome solo deja que byEar escuche una pestaña después de que hagas clic en su icono de la barra de herramientas en esa pestaña. Haz clic en el icono y vuelve a pulsar escuchar.",

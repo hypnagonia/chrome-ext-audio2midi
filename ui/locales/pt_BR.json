@@ -127,6 +127,7 @@
   "msg.cacheFailed": "Não foi possível salvar o modelo para a próxima vez, então ele será baixado de novo: {error}",
   "msg.refining": "Melhorando a transcrição… {pct}%",
   "msg.refined": "Transcrição melhorada.",
+  "msg.refineFailed": "Não foi possível melhorar a transcrição; as notas ao vivo foram mantidas.",
 
   "err.noTab": "Não há nenhuma aba para ouvir.",
   "err.invoke": "O Chrome só deixa o byEar ouvir uma aba depois que você clica no ícone dele na barra de ferramentas nessa aba. Clique no ícone e depois em ouvir de novo.",

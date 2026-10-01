@@ -9,10 +9,17 @@ const KNEE = 0.9;
 
 /** Returns samples boosted toward TARGET_RMS (new array), or the input when no boost is needed. */
 export function autoLevel(samples) {
-  let sum = 0;
-  for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
-  const rms = Math.sqrt(sum / samples.length);
-  if (rms < 1e-4) return samples; // silence: nothing to bring up
+  // Gated loudness: the RMS of the 50 ms frames that actually contain sound, so a chunk
+  // that is mostly silence plus one hit isn't boosted (and its attack isn't limited).
+  const frame = 800;
+  let sum = 0, count = 0;
+  for (let f = 0; f + frame <= samples.length; f += frame) {
+    let e = 0;
+    for (let i = f; i < f + frame; i++) e += samples[i] * samples[i];
+    if (e / frame > 1e-6) { sum += e; count += frame; } // above -60 dBFS
+  }
+  if (!count) return samples; // silence: nothing to bring up
+  const rms = Math.sqrt(sum / count);
   const gain = Math.min(MAX_GAIN, TARGET_RMS / rms);
   if (gain <= 1) return samples;
   const out = new Float32Array(samples.length);

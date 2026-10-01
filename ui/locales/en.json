@@ -127,6 +127,7 @@
   "msg.cacheFailed": "Couldn't save the model for next time, so it will download again: {error}",
   "msg.refining": "Improving the transcription… {pct}%",
   "msg.refined": "Transcription improved.",
+  "msg.refineFailed": "Couldn't improve the transcription, so the live notes are kept.",
 
   "err.noTab": "There is no tab to listen to.",
   "err.invoke": "Chrome lets byEar listen to a tab only after you click its toolbar icon on that tab. Click the icon, then press listen again.",

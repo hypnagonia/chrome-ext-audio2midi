@@ -97,8 +97,15 @@ export const chordKey = (ch) => (ch ? `${ch.root}${ch.suffix}/${ch.bass}` : '');
 export function chordSegments(notes, t0, t1, now = t1) {
   const step = 0.25;
   const wins = [];
+  // One sweep through the notes in start order, keeping only those still sounding:
+  // linear in the song length instead of scanning every note for every window.
+  const sorted = [...notes].sort((a, b) => a.start - b.start);
+  let next = 0;
+  let active = [];
   for (let t = t0; t < t1 - 1e-6; t += step) {
-    const { pc, bass, poly } = profile(notes, t, t + step, now);
+    while (next < sorted.length && sorted[next].start < t + step) active.push(sorted[next++]);
+    active = active.filter((n) => (n.end ?? now) > t);
+    const { pc, bass, poly } = profile(active, t, t + step, now);
     wins.push({ start: t, end: t + step, chord: poly >= 2 ? matchChord(pc, bass) : null });
   }
   // A single-window blip between two equal chords (A B A) is passing tones.

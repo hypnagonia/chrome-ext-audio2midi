@@ -14,7 +14,7 @@ export const ZOOM_STEPS = [3, 5, 8, 12, 20, 30, 45, 60]; // seconds visible
 export const TAB_MAX_WINDOW = 8; // tablature: zoom out only this far, so fret numbers keep room
 
 const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)');
-const THEME_VARS = ['--pending-pulse', '--paper', '--rule', '--rule-strong', '--ink', '--muted', '--live', '--roll-black', '--pending', '--pending-line', '--chord-font', '--label-font'];
+const THEME_VARS = ['--faint', '--pending-pulse', '--paper', '--rule', '--rule-strong', '--ink', '--muted', '--live', '--roll-black', '--pending', '--pending-line', '--chord-font', '--label-font'];
 
 /** Relative luminance (WCAG) of a #rrggbb colour. */
 function luminance(hex) {
@@ -62,7 +62,8 @@ export class PianoRoll {
       const scale = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? this.h : 1; // lines / pages -> px
       const sideways = e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
       if (!sideways && this.vOverflow) {
-        this.pitchScroll -= (e.deltaY * scale) / this.rowH;
+        if (this.mode === 'tab') this.tabScroll -= e.deltaY * scale; // staffs scroll in pixels
+        else this.pitchScroll -= (e.deltaY * scale) / this.rowH; // the roll in semitones
         this.dirty = true;
         return;
       }
@@ -72,9 +73,11 @@ export class PianoRoll {
     canvas.addEventListener('keydown', (e) => {
       if (e.altKey) return; // Alt + arrows edit the selected note (handled by the panel)
       const pan = { ArrowLeft: -0.1, ArrowRight: 0.1 }[e.key];
-      if (pan) this.onPan(pan * this.window * (document.dir === 'rtl' ? -1 : 1));
+      if (pan) this.onPan(pan * this.window); // the canvas is left-to-right in every language
       else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && this.vOverflow) {
-        this.pitchScroll += e.key === 'ArrowUp' ? 2 : -2;
+        const dir = e.key === 'ArrowUp' ? 1 : -1;
+        if (this.mode === 'tab') this.tabScroll += dir * (this.staffH || 92) / 4;
+        else this.pitchScroll += dir * 2;
         this.dirty = true;
       }
       else if (e.key === '+' || e.key === '=') this.zoom(-1);
@@ -100,6 +103,7 @@ export class PianoRoll {
     if (next !== this.window) {
       this.window = next;
       this.pitchScroll = 0;
+      this.tabScroll = 0;
       this.onZoom(next);
     }
   }
@@ -121,28 +125,27 @@ export class PianoRoll {
     const areaH = bottom - top;
     this.vOverflow = false;
     if (!insts.length) return;
-    const minStaff = 92;
-    const staffH = Math.max(minStaff, areaH / insts.length);
+    const staffH = Math.max(92, areaH / insts.length);
     const totalH = staffH * insts.length;
     const maxScroll = Math.max(0, totalH - areaH);
     this.vOverflow = maxScroll > 0;
-    // pitchScroll doubles as the staff scroll here (in staff-pixel units of rowH = 1).
-    this.rowH = 1;
-    this.pitchScroll = Math.max(-maxScroll, Math.min(0, this.pitchScroll));
+    this.staffH = staffH;
+    this.tabScroll = Math.max(-maxScroll, Math.min(0, this.tabScroll || 0)); // pixels, <= 0
+    let selectedBox = null;
     ctx.save();
     ctx.beginPath();
     ctx.rect(0, top, w, areaH);
     ctx.clip();
     insts.forEach((inst, idx) => {
-      const staffTop = top + idx * staffH + this.pitchScroll;
+      const staffTop = top + idx * staffH + this.tabScroll;
       if (staffTop > bottom || staffTop + staffH < top) return;
       const list = s.byInst.get(inst);
-      const lowest = this._lowest(inst, list);
-      const tuning = tuningFor(inst, lowest);
+      const tuning = tuningFor(inst, this._lowest(inst, list));
       const names = stringNames(tuning);
       const color = instrumentColor(inst);
       const gap = Math.min(16, (staffH - 26) / (tuning.length - 1));
       const lineY = (str) => staffTop + 18 + (tuning.length - 1 - str) * gap; // high string on top
+      const visibleY = (y0, y1) => y1 >= top && y0 <= bottom; // only what you can see is clickable
       // Staff label + string lines
       ctx.font = `bold 11px ${v['--label-font']}`;
       ctx.textBaseline = 'middle';
@@ -150,64 +153,89 @@ export class PianoRoll {
       ctx.fillRect(4, staffTop + 6, 8, 3);
       ctx.fillStyle = v['--muted'];
       ctx.fillText(s.label?.(inst) ?? inst, 16, staffTop + 8);
-      for (let st = 0; st < tuning.length; st++) {
-        ctx.fillStyle = v['--rule-strong'];
-        ctx.fillRect(14, Math.round(lineY(st)), w - 14, 1);
-      }
-      // Notes
-      this.fingering.assign(inst, list, t0 - 10, t1, tuning);
+      ctx.fillStyle = v['--faint'] || v['--rule-strong'];
+      for (let st = 0; st < tuning.length; st++) ctx.fillRect(14, Math.round(lineY(st)), w - 14, 1);
+      // Notes in view (binary search: notes ring at most ~12 s)
+      this.fingering.assign(inst, list, t0 - 12, t1, tuning);
+      let i0 = 0, hi = list.length;
+      while (i0 < hi) { const mid = (i0 + hi) >> 1; if (list[mid].start < t0 - 12) i0 = mid + 1; else hi = mid; }
       const size = Math.max(9, Math.min(13, gap));
       const font = `bold ${size}px ${v['--label-font']}`;
-      const lastRight = new Map(); // string -> right edge of the last number drawn on it
-      for (const n of list) {
-        if (n.start > t1) break;
+      const items = [];
+      const lastRight = new Map(); // string -> right edge of the last number placed on it
+      for (let i = i0; i < list.length && list[i].start <= t1; i++) {
+        const n = list[i];
         const end = n.end ?? s.done;
         if (end < t0) continue;
         const p = this.fingering.get(n, inst);
         if (!p) continue;
-        const nx = x(n.start);
+        // A note that started off the left edge keeps its number, pinned at the edge.
+        const nx = Math.max(x(n.start), 16);
         const ny = lineY(p.string);
-        ctx.globalAlpha = 0.45;
-        ctx.fillStyle = color;
-        ctx.fillRect(nx, ny - 1, Math.max(2, x(end) - nx), 3);
-        ctx.globalAlpha = 1;
         const text = String(p.fret);
         const tw = this._width(text, font);
-        // Too close to the previous number on this string: a small tick instead of a blended number.
-        if (nx - 1 < (lastRight.get(p.string) ?? -Infinity)) {
+        const tick = nx - 1 < (lastRight.get(p.string) ?? -Infinity); // too close to the previous number
+        if (!tick) lastRight.set(p.string, nx + tw + 2);
+        items.push({ n, nx, ny, end, text, tw, tick });
+      }
+      // Pass 1: ring lines and ticks. Pass 2: numbers on top, so nothing covers a digit.
+      for (const it of items) {
+        ctx.globalAlpha = 0.45;
+        ctx.fillStyle = color;
+        ctx.fillRect(it.nx, it.ny - 1, Math.max(2, x(it.end) - it.nx), 3);
+        ctx.globalAlpha = 1;
+        if (it.tick) {
           ctx.fillStyle = v['--ink'];
-          ctx.fillRect(nx, ny - 3, 1.5, 6);
-          hits.push({ x: nx - 2, y: ny - 4, w: 5, h: 8, note: n });
-          continue;
+          ctx.fillRect(it.nx, it.ny - 3, 1.5, 6);
+          if (visibleY(it.ny - 4, it.ny + 4)) hits.push({ x: it.nx - 2, y: it.ny - 4, w: 5, h: 8, note: it.n });
+          if (it.n === s.selected) selectedBox = [it.nx - 3, it.ny - 5, 7.5, 10];
         }
-        lastRight.set(p.string, nx + tw + 2);
+      }
+      ctx.font = font;
+      for (const it of items) {
+        if (it.tick) continue;
         ctx.fillStyle = v['--paper'];
-        ctx.fillRect(nx - 2, ny - size / 2 - 1, tw + 4, size + 2); // break the string line
-        ctx.font = font;
+        ctx.fillRect(it.nx - 2, it.ny - size / 2 - 1, it.tw + 4, size + 2); // break the string line
         ctx.fillStyle = v['--ink'];
-        ctx.fillText(text, nx, ny + 0.5);
-        hits.push({ x: nx - 2, y: ny - size / 2 - 1, w: tw + 4, h: size + 2, note: n });
-        if (n === s.selected) {
-          ctx.strokeStyle = v['--ink'];
-          ctx.lineWidth = 1.5;
-          ctx.strokeRect(nx - 3.5, ny - size / 2 - 2.5, tw + 7, size + 5);
-        }
+        ctx.fillText(it.text, it.nx, it.ny + 0.5);
+        const box = [it.nx - 2, it.ny - size / 2 - 1, it.tw + 4, size + 2];
+        if (visibleY(box[1], box[1] + box[3])) hits.push({ x: box[0], y: box[1], w: box[2], h: box[3], note: it.n });
+        if (it.n === s.selected) selectedBox = [box[0] - 1.5, box[1] - 1.5, box[2] + 3, box[3] + 3];
       }
       // String names last, on their own backing, so fret numbers never cover them.
       ctx.font = `10px ${v['--label-font']}`;
       for (let st = 0; st < tuning.length; st++) {
         ctx.fillStyle = v['--paper'];
-        ctx.fillRect(0, lineY(st) - 6, 13, 12);
+        ctx.fillRect(0, lineY(st) - 6, 14, 12);
         ctx.fillStyle = v['--muted'];
         ctx.fillText(names[st], 3, lineY(st));
       }
     });
+    if (selectedBox) { // after everything, so no later number covers it
+      ctx.strokeStyle = v['--ink'];
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(...selectedBox);
+    }
     ctx.restore();
     if (this.vOverflow) {
       const barH = Math.max(16, (areaH / totalH) * areaH);
-      const barTop = top + (-this.pitchScroll / totalH) * areaH;
+      const barTop = top + (-this.tabScroll / totalH) * areaH;
       ctx.fillStyle = v['--rule-strong'];
       ctx.fillRect(w - 4, barTop, 3, barH);
+    }
+  }
+
+  /**
+   * Notes that may be in [t0, t1]: binary search in each part's start-sorted list (notes
+   * last at most ~12 s), so a frame costs the same at minute 1 and at hour 1.
+   */
+  *_inView(s, t0, t1) {
+    if (!s.byInst) { yield* s.notes; return; }
+    for (const list of s.byInst.values()) {
+      let lo = 0, hi = list.length;
+      const from = t0 - 12;
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (list[mid].start < from) lo = mid + 1; else hi = mid; }
+      for (let i = lo; i < list.length && list[i].start <= t1; i++) yield list[i];
     }
   }
 
@@ -231,8 +259,9 @@ export class PianoRoll {
   _lowest(inst, list) {
     const c = (this.lowCache ||= new Map()).get(inst);
     if (c && c.list === list && c.n === list.length) return c.low;
-    let low = Infinity;
-    for (const n of list) low = Math.min(low, n.pitch);
+    // Ignore the lowest 1% so a stray mis-transcribed note doesn't flip the tuning.
+    const pitches = list.map((n) => n.pitch).sort((a, b) => a - b);
+    const low = pitches.length ? pitches[pitches.length >= 50 ? Math.floor(pitches.length * 0.01) : 0] : Infinity;
     this.lowCache.set(inst, { list, n: list.length, low });
     return low;
   }
@@ -301,7 +330,7 @@ export class PianoRoll {
     // soloing an instrument zooms the roll onto its range.
     let lo = Infinity, hi = -Infinity, alo = Infinity, ahi = -Infinity;
     const visible = [];
-    for (const n of s.notes) {
+    for (const n of this._inView(s, t0, t1)) {
       if (n.start > t1 || (n.end ?? s.done) < t0) continue;
       visible.push(n);
       if (n.instrument === 'drums') continue;
@@ -436,7 +465,7 @@ export class PianoRoll {
       ctx.fillRect(nx, y(n.pitch) + 0.5, nw, Math.max(1.5, rowH - 1));
       ctx.globalAlpha = 1;
       if (!on) continue;
-      hits.push({ x: nx, y: y(n.pitch), w: nw, h: Math.max(4, rowH), note: n });
+      if (y(n.pitch) + rowH >= top && y(n.pitch) <= bottom) hits.push({ x: nx, y: y(n.pitch), w: nw, h: Math.max(4, rowH), note: n });
       if (n === s.selected) {
         ctx.strokeStyle = v['--ink'];
         ctx.lineWidth = 1.5;
@@ -480,7 +509,7 @@ export class PianoRoll {
     this.t0 = t0; // for pointer scrubbing
     this.hits = hits;
     // Vertical scrollbar: where the visible pitch rows sit within all the notes in view.
-    if (this.vOverflow && extent) {
+    if (this.mode !== 'tab' && this.vOverflow && extent) {
       const span = extent[1] - extent[0] + 1;
       const barTop = top + ((extent[1] - pHi) / span) * areaH;
       const barH = Math.max(16, ((pHi - pLo + 1) / span) * areaH);

@@ -67,11 +67,17 @@ export class Transcriber {
     return { events, out };
   }
 
-  /** Main-pass events without voice notes (the voice pass supplies those). */
-  _withoutVoice(events) {
+  /**
+   * Main-pass events. While the voice pass runs, its voice notes replace the main pass's,
+   * so those are dropped; the ends of dropped notes are always dropped too.
+   */
+  _main(events, voiceOn) {
     return events.filter((e) => {
-      if (e.type === 'start' && e.instrument === 'voice') { this.droppedVoice.add(e.index); return false; }
-      return !(e.type === 'end' && this.droppedVoice.delete(e.index));
+      if (e.type === 'start') {
+        if (voiceOn && e.instrument === 'voice') { this.droppedVoice.add(e.index); return false; }
+        return true;
+      }
+      return !this.droppedVoice.delete(e.index);
     });
   }
 
@@ -90,38 +96,41 @@ export class Transcriber {
   /**
    * Transcribe one 5 s chunk. Pass samples = null to skip it (silence or
    * falling behind): open notes then end at this chunk's start.
-   * @returns {events, stats}
+   * If the GPU fails midway, what was decoded so far is still returned (failed: true),
+   * so no note is left open in the panel.
+   * @returns {events, stats, failed, error}
    */
   async processChunk(samples, seekTime, nextSeekTime) {
     const decoder = this.decoder; // stays with this chunk even if reset() runs meanwhile
     const vdec = this.voiceDecoder;
-    let events = decoder.boundary(seekTime, nextSeekTime);
-    const vEvents = vdec.boundary(seekTime, nextSeekTime);
+    const voiceOn = this.voice && !this.instruments;
+    const mainEvents = decoder.boundary(seekTime, nextSeekTime);
+    const voiceEvents = vdec.boundary(seekTime, nextSeekTime);
     const first = this.chunks++ === 0;
-    if (!samples) return { events: [...events, ...this._onlyVoice(vEvents)], stats: null };
+    const result = () => ({ events: [...this._main(mainEvents, voiceOn), ...this._onlyVoice(voiceEvents)] });
+    if (!samples) return { ...result(), stats: null };
     const t0 = performance.now();
-    const mel = this.mel.compute(this.level(samples));
-    const t1 = performance.now();
-    const main = await this._pass(decoder, mel, this.instruments ?? this.hint, first);
-    events.push(...main.events);
-    let generated = main.out.generated;
-    if (this.voice && !this.instruments) {
-      const voice = await this._pass(vdec, mel, ['voice'], this.voiceChunks++ === 0);
-      events = [...this._withoutVoice(events), ...this._onlyVoice([...vEvents, ...voice.events])];
-      generated += voice.out.generated;
-    } else if (vEvents.length) {
-      events.push(...this._onlyVoice(vEvents));
+    let generated = 0, eos = false, tokens = [];
+    let t1 = t0;
+    try {
+      const mel = this.mel.compute(this.level(samples));
+      t1 = performance.now();
+      const main = await this._pass(decoder, mel, this.instruments ?? this.hint, first);
+      mainEvents.push(...main.events);
+      ({ generated, eos, tokens } = { generated: main.out.generated, eos: main.out.eos, tokens: main.out.tokens });
+      if (voiceOn) {
+        const voice = await this._pass(vdec, mel, ['voice'], this.voiceChunks++ === 0);
+        voiceEvents.push(...voice.events);
+        generated += voice.out.generated;
+      }
+    } catch (error) {
+      return { ...result(), stats: null, failed: true, error };
     }
-    const t2 = performance.now();
-    return {
-      events,
-      tokens: main.out.tokens,
-      stats: { melMs: t1 - t0, genMs: t2 - t1, generated, eos: main.out.eos },
-    };
+    return { ...result(), tokens, stats: { melMs: t1 - t0, genMs: performance.now() - t1, generated, eos } };
   }
 
   finish() {
-    return [...this.decoder.finish(), ...this._onlyVoice(this.voiceDecoder.finish())];
+    return [...this._main(this.decoder.finish(), false), ...this._onlyVoice(this.voiceDecoder.finish())];
   }
 
   /**

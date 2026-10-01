@@ -127,6 +127,7 @@
   "msg.cacheFailed": "无法保存模型供下次使用，下次将重新下载：{error}",
   "msg.refining": "正在优化扒谱… {pct}%",
   "msg.refined": "扒谱已优化。",
+  "msg.refineFailed": "未能优化扒谱，已保留实时音符。",
 
   "err.noTab": "没有可聆听的标签页。",
   "err.invoke": "Chrome 要求你先在该标签页上点击工具栏中的 byEar 图标，byEar 才能聆听。请点击图标，然后再次点击“聆听”。",

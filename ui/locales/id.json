@@ -127,6 +127,7 @@
   "msg.cacheFailed": "Model tidak bisa disimpan untuk lain kali, jadi akan diunduh lagi: {error}",
   "msg.refining": "Menyempurnakan transkripsi… {pct}%",
   "msg.refined": "Transkripsi disempurnakan.",
+  "msg.refineFailed": "Transkripsi tidak bisa disempurnakan, jadi not live dipertahankan.",
 
   "err.noTab": "Tidak ada tab untuk didengarkan.",
   "err.invoke": "Chrome hanya mengizinkan byEar mendengarkan tab setelah kamu mengklik ikonnya di toolbar pada tab tersebut. Klik ikonnya, lalu tekan dengarkan lagi.",

@@ -127,6 +127,7 @@
   "msg.cacheFailed": "Không lưu được mô hình cho lần sau, nên sẽ phải tải lại: {error}",
   "msg.refining": "Đang cải thiện bản chép… {pct}%",
   "msg.refined": "Đã cải thiện bản chép.",
+  "msg.refineFailed": "Không thể cải thiện bản chép nên giữ lại các nốt trực tiếp.",
 
   "err.noTab": "Không có tab nào để nghe.",
   "err.invoke": "Chrome chỉ cho byEar nghe một tab sau khi bạn bấm biểu tượng của tiện ích trên thanh công cụ ở chính tab đó. Bấm biểu tượng, rồi bấm nghe lại.",

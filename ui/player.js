@@ -81,9 +81,16 @@ export class Player {
   }
 
   /** The recording as one WAV (silent gaps filled), for pitch-preserving slow playback. */
+  /** Pitch-preserving slow playback needs one sample rate and a sane size; else null. */
+  _elementOk() {
+    const rates = new Set(this.segments.map((s) => s.rate));
+    return rates.size === 1 && this.duration * [...rates][0] * 2 < 600e6;
+  }
+
   _element() {
-    const key = `${this.segments.length}:${this.duration}`;
-    if (this.el && this.elKey === key) return this.el;
+    const last = this.segments[this.segments.length - 1];
+    // Keyed on the recording itself (a Clear makes a new array), not just its length.
+    if (this.el && this.elFor === this.segments && this.elLast === last && this.elDuration === this.duration) return this.el;
     if (this.elUrl) URL.revokeObjectURL(this.elUrl);
     const rate = this.segments[0]?.rate || 48000;
     const n = Math.ceil(this.duration * rate);
@@ -108,7 +115,9 @@ export class Player {
       this.elSource.connect(this.elGain).connect(this.master);
     }
     this.el.src = this.elUrl;
-    this.elKey = key;
+    this.elFor = this.segments;
+    this.elLast = last;
+    this.elDuration = this.duration;
     return this.el;
   }
 
@@ -133,15 +142,22 @@ export class Player {
     this._ensureCtx();
     await this.ctx.resume();
     if (gen !== this.gen || this.playing) return; // paused or replayed while resuming
-    if (this.mode === 'original' && this.speed !== 1 && this.segments.length) {
+    if (this.mode === 'original' && this.speed !== 1 && this.segments.length && this._elementOk()) {
       // Slowed-down original: an <audio> element keeps the pitch.
       const el = this._element();
       el.currentTime = this.pos;
       el.playbackRate = this.speed;
       el.preservesPitch = true;
       this.elGain.gain.value = 1;
-      await el.play();
-      if (gen !== this.gen) { el.pause(); return; }
+      try {
+        await el.play();
+      } catch {
+        return; // superseded by a newer play()/pause(), or the element refused: stay paused
+      }
+      if (gen !== this.gen) {
+        if (!this.playing) el.pause(); // only if nothing newer is playing it
+        return;
+      }
       this.elActive = true;
       this.playing = true;
       clearInterval(this.timer);
@@ -244,8 +260,10 @@ export class Player {
         src.buffer = this._buffer(seg);
         src.connect(this.bus);
         // If the timer ran late, start now but skip ahead so the audio stays on the timeline.
+        // Fallback for slow playback (mixed sample rates / huge sessions): speed changes pitch here.
+        src.playbackRate.value = this.speed;
         const late = Math.max(0, this.ctx.currentTime - when(start));
-        src.start(when(start) + late, start - seg.seek + late);
+        src.start(when(start) + late, start - seg.seek + late * this.speed);
       }
     } else {
       for (const n of this.notes) {

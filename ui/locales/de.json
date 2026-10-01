@@ -127,6 +127,7 @@
   "msg.cacheFailed": "Das Modell konnte nicht für später gespeichert werden und wird erneut heruntergeladen: {error}",
   "msg.refining": "Transkription wird verbessert… {pct} %",
   "msg.refined": "Transkription verbessert.",
+  "msg.refineFailed": "Die Transkription konnte nicht verbessert werden, die Live-Noten bleiben erhalten.",
 
   "err.noTab": "Es gibt keinen Tab zum Zuhören.",
   "err.invoke": "Chrome lässt byEar einen Tab erst abhören, nachdem du in diesem Tab auf das Symbol in der Symbolleiste geklickt hast. Klick auf das Symbol und dann erneut auf „zuhören“.",

@@ -127,6 +127,7 @@
   "msg.cacheFailed": "Model sonraki sefer için kaydedilemedi, bu yüzden yeniden indirilecek: {error}",
   "msg.refining": "Transkripsiyon iyileştiriliyor… %{pct}",
   "msg.refined": "Transkripsiyon iyileştirildi.",
+  "msg.refineFailed": "Transkripsiyon iyileştirilemedi; canlı notalar korunuyor.",
 
   "err.noTab": "Dinlenecek bir sekme yok.",
   "err.invoke": "Chrome, byEar'ın bir sekmeyi dinlemesine ancak o sekmedeyken araç çubuğundaki simgesine tıkladıktan sonra izin verir. Simgeye tıklayın, ardından tekrar dinle düğmesine basın.",

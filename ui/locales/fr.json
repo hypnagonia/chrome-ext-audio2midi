@@ -127,6 +127,7 @@
   "msg.cacheFailed": "Impossible d'enregistrer le modèle pour la prochaine fois, il sera donc téléchargé à nouveau : {error}",
   "msg.refining": "Amélioration de la transcription… {pct} %",
   "msg.refined": "Transcription améliorée.",
+  "msg.refineFailed": "Impossible d'améliorer la transcription : les notes en direct sont conservées.",
 
   "err.noTab": "Il n'y a aucun onglet à écouter.",
   "err.invoke": "Chrome ne laisse byEar écouter un onglet qu'après un clic sur son icône dans la barre d'outils, depuis cet onglet. Cliquez sur l'icône, puis appuyez à nouveau sur écouter.",
