@@ -24,6 +24,17 @@ const MODELS = {
   small: { label: 'pill.fast', mb: 209 },
   medium: { label: 'pill.accurate', mb: 615 },
 };
+// The model tells electric, acoustic and double bass apart, and acoustic, clean and
+// distorted guitar; to a listener that's just "Bass" and "Guitar", so each is one part
+// (stored under electric_bass / clean_electric_guitar).
+const SAME_PART = {
+  acoustic_bass: 'electric_bass', contrabass: 'electric_bass',
+  acoustic_guitar: 'clean_electric_guitar', distorted_electric_guitar: 'clean_electric_guitar',
+};
+/** Model instrument names a settings choice stands for. */
+const modelNames = (names) => names && [...new Set(names.map((n) => SAME_PART[n] ?? n))]
+  .flatMap((n) => [n, ...Object.keys(SAME_PART).filter((k) => SAME_PART[k] === n)]);
+
 // Single-line instruments: show their notes, not chord names.
 const LINE_INSTRUMENTS = new Set([
   'acoustic_bass', 'electric_bass', 'contrabass', 'voice', 'trumpet', 'trombone', 'tuba', 'french_horn',
@@ -149,7 +160,7 @@ worker.onmessage = ({ data }) => {
     case 'ready':
       loading = false;
       modelInfo = data.info;
-      worker.postMessage({ type: 'instruments', names: settings.instruments });
+      worker.postMessage({ type: 'instruments', names: modelNames(settings.instruments) });
       showScreen('live');
       $('recBtn').disabled = !isExtension;
       updatePill();
@@ -296,9 +307,15 @@ function reapplyEdits() {
  * toggle changes nothing but the voice track.
  */
 function lineup() {
-  const total = [...session.byInst.values()].reduce((a, l) => a + l.length, 0);
-  const names = [...session.byInst.entries()]
-    .filter(([inst, l]) => inst !== 'voice' && !inst.startsWith('program_') && l.length >= Math.max(12, total * 0.02))
+  // Counted by the model's own instrument names (e.g. distorted guitar), not merged parts.
+  const counts = new Map();
+  for (const n of session.notes.values()) {
+    const m = n.model ?? n.instrument;
+    counts.set(m, (counts.get(m) || 0) + 1);
+  }
+  const total = session.notes.size;
+  const names = [...counts.entries()]
+    .filter(([inst, c]) => inst !== 'voice' && !inst.startsWith('program_') && c >= Math.max(12, total * 0.02))
     .map(([inst]) => inst);
   if (settings.vocals) names.push('voice');
   return names;
@@ -395,6 +412,10 @@ const audible = (inst) => (session.solo.size ? session.solo.has(inst) : !session
 const reviewing = () => !capture && session.done > 0;
 
 function addNote(k, note) {
+  if (SAME_PART[note.instrument]) {
+    note.model = note.instrument; // what the model heard (refine hints with it)
+    note.instrument = SAME_PART[note.instrument];
+  }
   session.notes.set(k, note);
   if (!session.byInst.has(note.instrument)) session.byInst.set(note.instrument, []);
   const list = session.byInst.get(note.instrument);
@@ -1261,7 +1282,7 @@ document.addEventListener('keydown', (e) => {
 // Settings sheet
 const chips = $('optInstruments');
 function renderSettingsText() {
-  chips.replaceChildren(...INSTRUMENT_NAMES.map((name) => {
+  chips.replaceChildren(...INSTRUMENT_NAMES.filter((name) => !SAME_PART[name]).map((name) => {
     const l = document.createElement('label');
     l.innerHTML = `<input type="checkbox" value="${name}">${esc(instrumentLabel(name))}`;
     return l;
@@ -1299,7 +1320,7 @@ const openSettings = () => {
   $('optToken').value = settings.token;
   $('optF32').checked = settings.f32;
   $('optRefine').checked = settings.refine;
-  for (const box of chips.querySelectorAll('input')) box.checked = settings.instruments.includes(box.value);
+  for (const box of chips.querySelectorAll('input')) box.checked = settings.instruments.some((n) => (SAME_PART[n] ?? n) === box.value);
   $('settings').returnValue = ''; // Esc keeps the previous value otherwise, which would save
   $('settings').showModal();
 };
@@ -1321,7 +1342,7 @@ $('settings').addEventListener('close', async () => {
   const reload = next.model !== settings.model || next.f32 !== settings.f32 || (next.token !== settings.token && !modelInfo);
   await settingsStore.set(next);
   if (localeChanged) await applyLocale();
-  worker.postMessage({ type: 'instruments', names: settings.instruments });
+  worker.postMessage({ type: 'instruments', names: modelNames(settings.instruments) });
   if (session.refine) startRefine(); // redo it with the new instruments throughout
   if (reload && settings.accepted) {
     if (capture) await stopCapture();

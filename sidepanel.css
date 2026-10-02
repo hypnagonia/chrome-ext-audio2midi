@@ -543,3 +543,10 @@ select:focus { border-color: var(--ink); outline: 0; }
 [dir=rtl] .nowChord, [dir=rtl] .welcomeArt { text-align: right; }
 /* Arabic: name real Arabic faces so fallback never lands on Courier's Arabic glyphs. */
 :root:lang(ar) { --mono: 'ByEar Mono', 'SF Arabic', 'Geeza Pro', 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif; }
+
+/* jenyadoesapps logo, tinted like the other icons */
+.siteLogo {
+  display: block; width: 22px; height: 22px; background: currentColor;
+  -webkit-mask: url(icons/jenyadoesapps.png) center / contain no-repeat;
+  mask: url(icons/jenyadoesapps.png) center / contain no-repeat;
+}
