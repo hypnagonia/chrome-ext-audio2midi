@@ -303,28 +303,35 @@ export class Player {
   }
 
   /**
-   * The vocal line as a Eurodance lead, a bit louder than the band so the melody leads:
-   * three detuned saws (supersaw), a filter that opens on each note, delayed vibrato.
+   * The vocal line as a big Eurodance lead, clearly louder than the band so the melody leads:
+   * five detuned saws (supersaw) for width, a square an octave down and a sine on the note
+   * for body, a filter that opens on each note, and vibrato that eases in on held notes.
    */
   _lead(n, t, length) {
     const ctx = this.ctx;
-    const a = 0.012, r = 0.18;
+    const a = 0.012, r = 0.22;
     const dur = Math.max(0.08, length, a + 0.02);
+    const stop = t + dur + r * 2;
     const freq = 440 * 2 ** ((n.pitch - 69) / 12);
     const lp = ctx.createBiquadFilter();
     lp.type = 'lowpass';
-    lp.Q.value = 4;
-    lp.frequency.setValueAtTime(900, t);
-    lp.frequency.linearRampToValueAtTime(5200, t + 0.03);
-    lp.frequency.setTargetAtTime(2600, t + 0.03, 0.12);
+    lp.Q.value = 1.2;
+    lp.frequency.setValueAtTime(1400, t);
+    lp.frequency.linearRampToValueAtTime(7000, t + 0.03);
+    lp.frequency.setTargetAtTime(4200, t + 0.03, 0.15);
+    // Warmth: a gentle lift in the low mids
+    const body = ctx.createBiquadFilter();
+    body.type = 'peaking';
+    body.frequency.value = 280;
+    body.Q.value = 0.8;
+    body.gain.value = 4;
     const g = ctx.createGain();
-    const peak = 0.42; // about +3-4 dB over the band (which peaks at 0.32)
+    const peak = 0.3; // about +7 dB over the band
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(peak, t + a);
-    g.gain.setTargetAtTime(peak * 0.85, t + a, 0.08);
+    g.gain.setTargetAtTime(peak * 0.9, t + a, 0.1);
     g.gain.setTargetAtTime(0, t + dur, r / 3);
-    lp.connect(g).connect(this.bus);
-    // Vibrato that eases in on held notes
+    lp.connect(body).connect(g).connect(this.bus);
     const lfo = this._track(ctx.createOscillator());
     lfo.frequency.value = 5.5;
     const depth = ctx.createGain();
@@ -332,20 +339,23 @@ export class Player {
     depth.gain.linearRampToValueAtTime(0, t + 0.25);
     depth.gain.linearRampToValueAtTime(freq * 0.006, t + 0.6);
     lfo.connect(depth);
-    for (const cents of [-12, 0, 12]) {
+    const layer = (type, f, cents, level) => {
       const osc = this._track(ctx.createOscillator());
-      osc.type = 'sawtooth';
-      osc.frequency.value = freq;
+      osc.type = type;
+      osc.frequency.value = f;
       osc.detune.value = cents;
       depth.connect(osc.frequency);
       const mix = ctx.createGain();
-      mix.gain.value = cents ? 0.3 : 0.45;
+      mix.gain.value = level;
       osc.connect(mix).connect(lp);
       osc.start(t);
-      osc.stop(t + dur + r * 2);
-    }
+      osc.stop(stop);
+    };
+    for (const [cents, level] of [[-18, 0.16], [-7, 0.2], [0, 0.24], [7, 0.2], [18, 0.16]]) layer('sawtooth', freq, cents, level);
+    layer('square', freq / 2, 0, 0.22); // an octave down
+    layer('sine', freq, 0, 0.35); // the fundamental, solid
     lfo.start(t);
-    lfo.stop(t + dur + r * 2);
+    lfo.stop(stop);
   }
 
   _drum(pitch, t) {
