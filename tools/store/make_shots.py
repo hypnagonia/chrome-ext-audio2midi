@@ -20,38 +20,50 @@ REVIEW = """(async () => {
   const d = panel().document;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   for (let i = 0; i < 40 && d.getElementById('transport').hidden; i++) await sleep(500);
+  // Let the improving pass finish (final notes and fingering), then close its message.
+  for (let i = 0; i < 240 && !/improved/i.test(d.getElementById('bannerText').textContent); i++) await sleep(500);
+  await sleep(300);
+  d.getElementById('bannerClose').click();
   d.querySelector('[data-mode=midi]').click();
+  d.getElementById('speedBtn').click(); // 75%: practice speed
   const s = d.getElementById('scrub'); s.value = 700; s.dispatchEvent(new Event('change'));
   d.getElementById('playBtn').click(); await sleep(2500); d.getElementById('playBtn').click();
   return d.getElementById('timeLabel').textContent;
 })()"""
 
-# Mute the bass so the roll zooms onto the guitar and every note gets a label.
-HIDE_BASS = """(async () => {
+# Tab view, in review, parked on a stretch with guitar and bass.
+TAB = """(async () => {
   const d = panel().document;
-  const row = [...d.querySelectorAll('.inst')].find((r) => /bass/i.test(r.textContent));
-  row?.querySelector('.mute').click();
-  await new Promise((r) => setTimeout(r, 1800));
-  return !!row;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  for (let i = 0; i < 40 && d.getElementById('transport').hidden; i++) await sleep(500);
+  // Let the improving pass finish (final notes and fingering), then close its message.
+  for (let i = 0; i < 240 && !/improved/i.test(d.getElementById('bannerText').textContent); i++) await sleep(500);
+  await sleep(300);
+  d.getElementById('bannerClose').click();
+  // Solo the guitar: one clear staff, the way you'd practise a part.
+  [...d.querySelectorAll('.inst')].find((r) => /guitar/i.test(r.textContent))?.querySelector('.solo')?.click();
+  const s = d.getElementById('scrub'); s.value = 680; s.dispatchEvent(new Event('change'));
+  await sleep(1500);
+  return d.getElementById('timeLabel').textContent;
 })()"""
 
 SHOTS = [
-    dict(name='1-live-chords', after=60, rollh=230, state=dict(accepted=True, zoom=8),
+    dict(name='1-live-chords', after=60, rollh=230, state=dict(accepted=True, zoom=8, vocals=True),
          title='Hear a song, see its chords.',
          sub='byEar listens to any tab (YouTube, Spotify, a lesson video) and writes out the chords, notes and key while the music plays.',
          points=['chords for every instrument', 'the key of the song', 'private: runs on your GPU']),
-    dict(name='2-instruments', after=60, rollh=150, state=dict(accepted=True, zoom=12),
-         title='Every instrument, its own part.',
-         sub='Guitar, bass, piano, voice, strings and drums: each one gets its own channel with its chords or notes.',
-         points=['mute and solo, like a mixer', 'chords and single lines', 'drum hits by name']),
-    dict(name='3-notes', after=58, eval=HIDE_BASS, state=dict(accepted=True, zoom=5),
-         title='Every note, labelled.',
-         sub='Zoom into the piano roll to read each note by name and octave. Learn the part, then play it.',
-         points=['zoom from 3 to 60 seconds', 'sharps and flats follow the key', 'clean dark piano roll']),
-    dict(name='4-review-midi', after=63, state=dict(accepted=True, zoom=8), eval=REVIEW,
-         title='Play it back as MIDI.',
-         sub='When the song ends, switch between the original and the MIDI version, click to jump anywhere, and export a MIDI file for your DAW.',
-         points=['original or midi, one click', 'export one track per instrument', 'nothing leaves your computer']),
+    dict(name='2-instruments', after=60, rollh=150, state=dict(accepted=True, zoom=12, vocals=True),
+         title='Every instrument, its own channel.',
+         sub='Voice, guitar, keys, bass and drums each get a channel strip with its chords or notes. Mute, solo, or drag them into your own order.',
+         points=['mute and solo, like a mixer', 'vocals, chords and single lines', 'drum hits by name']),
+    dict(name='3-tabs', after=63, state=dict(accepted=True, zoom=5, view='tab'), eval=TAB,
+         title='Guitar and bass tabs.',
+         sub='Switch to tab and every part is fingered the way a player would: hand positions, open strings where they fit, standard chord shapes.',
+         points=['7-string guitar and 5-string bass', 'click a fret to hear it', 'move a note to another string']),
+    dict(name='4-review-midi', after=63, state=dict(accepted=True, zoom=8, vocals=True), eval=REVIEW,
+         title='Practise it, fix it, export it.',
+         sub='When the song ends, play it back as MIDI or the original, slow it down, click any note to hear it, correct it, and export a MIDI file for your DAW.',
+         points=['75% and 50% speed, same pitch', 'fix notes with Alt + arrow keys', 'one MIDI track per instrument']),
     dict(name='5-languages', after=57, state=dict(accepted=True, zoom=8, lang='fr'),
          title='Your language, your note names.',
          sub='18 languages, with notes named the way you learned them: C D E, Do Ré Mi, or C D E … H.',
