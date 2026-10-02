@@ -714,7 +714,10 @@ function setText(el, text) { if (el.textContent !== text) el.textContent = text;
 
 function frame() {
   if (capture) {
-    session.now = session.offset + capture.captured / capture.rate;
+    // Audio arrives in blocks (~85 ms): between blocks, carry the clock forward with the
+    // frame clock so the live view glides instead of stepping.
+    const since = capture.waiting || !capture.blockAt ? 0 : Math.min(0.12, (performance.now() - capture.blockAt) / 1000);
+    session.now = Math.max(session.now, session.offset + capture.captured / capture.rate + since);
     setArc($('chunkArc'), capture.fill / capture.chunk.length);
     capture.levelShown += (capture.level - capture.levelShown) * 0.3;
     $('recBtn').style.setProperty('--level', Math.min(1, capture.levelShown * 6).toFixed(3));
@@ -846,6 +849,7 @@ async function startCapture(makeSource, label, cleanup, begin) {
     let e = 0;
     for (let i = 0; i < data.length; i += 8) e += data[i] * data[i];
     c.level = Math.sqrt(e / (data.length / 8));
+    c.blockAt = performance.now();
     // Auto pause on silence, auto resume when sound returns.
     c.quietFor = c.level < SILENCE_RMS ? c.quietFor + data.length / rate : 0;
     if (c.waiting) {
@@ -1405,7 +1409,7 @@ if (!isExtension) {
   window.__byearTime = () => player.time;
   window.__byearGaps = () => { const st = [...session.notes.values()].filter((n) => n.instrument !== 'drums').map((n) => n.start).sort((a, b) => a - b); let g = 0, at = 0; for (let i = 1; i < st.length; i++) if (st[i] - st[i - 1] > g) { g = st[i] - st[i - 1]; at = st[i - 1]; } return { longestGap: +g.toFixed(2), at: +at.toFixed(2), duration: player.duration }; };
   window.__byearSel = () => session.selected && { pitch: session.selected.pitch, instrument: session.selected.instrument };
-  window.__byearState = () => ({ dropped: session.dropped, droppedSeeks: session.droppedSeeks.map((d) => d.seek), stats: session.statsLog, refine: !!session.refine, audio: session.audio.length, backfilling: session.backfilling, capture: !!capture, setting: settings.refine, reviewing: reviewing() });
+  window.__byearState = () => ({ now: session.now, dropped: session.dropped, droppedSeeks: session.droppedSeeks.map((d) => d.seek), stats: session.statsLog, refine: !!session.refine, audio: session.audio.length, backfilling: session.backfilling, capture: !!capture, setting: settings.refine, reviewing: reviewing() });
   window.__byearPos = () => session.selected && roll.fingering.get(session.selected, session.selected.instrument);
   window.__byearRoll = roll;
   window.__byear = () => ({

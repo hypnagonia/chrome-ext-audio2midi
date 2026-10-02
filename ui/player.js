@@ -122,10 +122,43 @@ export class Player {
   }
 
   /** Timeline position now. */
+  /**
+   * The playback position, smooth for drawing. Audio clocks advance in steps (the
+   * <audio> element's only a few times a second), so between steps the position is
+   * carried forward with the frame clock, re-anchored to the audio, and never goes back.
+   */
   get time() {
-    if (!this.playing) return this.pos;
-    if (this.elActive) return Math.min(this.duration, this.el.currentTime);
-    return Math.min(this.duration, Math.max(this.startPos, this.startPos + (this.ctx.currentTime - this.startAt) * this.speed));
+    if (!this.playing) {
+      this.shown = null;
+      return this.pos;
+    }
+    const now = performance.now();
+    let t;
+    if (this.elActive) {
+      // The element reports its time only now and then: glide at the playback rate and
+      // ease toward what it reports, instead of snapping to each report.
+      const rate = this.el.playbackRate;
+      const raw = this.el.currentTime;
+      const a = this.elAnchor;
+      if (!a || raw !== a.raw) this.elAnchor = { raw, at: now }; // the element just moved
+      const target = this.elAnchor.raw + Math.min(0.5, (now - this.elAnchor.at) / 1000) * rate;
+      if (this.shown == null || Math.abs(target - this.shown) > 0.3) t = target;
+      else {
+        const glide = this.shown + ((now - this.shownAt) / 1000) * rate;
+        t = glide + (target - glide) * 0.08;
+      }
+    } else {
+      // What is audible right now: the output timestamp, carried forward to this moment.
+      const ts = this.ctx.getOutputTimestamp?.();
+      const ctxNow = ts?.performanceTime ? ts.contextTime + (now - ts.performanceTime) / 1000 : this.ctx.currentTime;
+      t = this.startPos + (ctxNow - this.startAt) * this.speed;
+    }
+    t = Math.max(this.startPos, t);
+    // Never backwards (small corrections are absorbed by moving a little slower).
+    if (this.shown != null && t < this.shown && this.shown - t < 0.25) t = this.shown;
+    this.shown = t;
+    this.shownAt = now;
+    return Math.min(this.duration, t);
   }
 
   load({ segments, notes, duration, audible }) {
@@ -139,6 +172,8 @@ export class Player {
     if (this.playing) return;
     const gen = ++this.gen;
     if (this.pos >= this.duration - 0.05) this.pos = 0;
+    this.shown = null; // a fresh start: the smooth clock re-anchors
+    this.elAnchor = null;
     this._ensureCtx();
     await this.ctx.resume();
     if (gen !== this.gen || this.playing) return; // paused or replayed while resuming
