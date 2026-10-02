@@ -303,59 +303,79 @@ export class Player {
   }
 
   /**
-   * The vocal line as a big Eurodance lead, clearly louder than the band so the melody leads:
-   * five detuned saws (supersaw) for width, a square an octave down and a sine on the note
-   * for body, a filter that opens on each note, and vibrato that eases in on held notes.
+   * The vocal line as a solo violin, clearly louder than the band so the melody leads:
+   * a bowed saw (soft attack, a little bow noise) through the instrument's body resonances
+   * (air ~280 Hz, wood ~500 Hz, the bright "bridge hill" ~3 kHz), with vibrato that eases
+   * in on held notes, as a violinist plays it.
    */
   _lead(n, t, length) {
     const ctx = this.ctx;
-    const a = 0.012, r = 0.22;
-    const dur = Math.max(0.08, length, a + 0.02);
+    const a = 0.07, r = 0.2;
+    const dur = Math.max(0.1, length, a + 0.02);
     const stop = t + dur + r * 2;
     const freq = 440 * 2 ** ((n.pitch - 69) / 12);
+    // Body: a chain of resonances, then the string's natural roll-off
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 170;
+    let chain = hp;
+    for (const [f, q, gain] of [[280, 1.4, 6], [500, 1.2, 4], [3000, 0.9, 6]]) {
+      const peak = ctx.createBiquadFilter();
+      peak.type = 'peaking';
+      peak.frequency.value = f;
+      peak.Q.value = q;
+      peak.gain.value = gain;
+      chain = chain.connect(peak);
+    }
     const lp = ctx.createBiquadFilter();
     lp.type = 'lowpass';
-    lp.Q.value = 1.2;
-    lp.frequency.setValueAtTime(1400, t);
-    lp.frequency.linearRampToValueAtTime(7000, t + 0.03);
-    lp.frequency.setTargetAtTime(4200, t + 0.03, 0.15);
-    // Warmth: a gentle lift in the low mids
-    const body = ctx.createBiquadFilter();
-    body.type = 'peaking';
-    body.frequency.value = 280;
-    body.Q.value = 0.8;
-    body.gain.value = 4;
+    lp.frequency.value = 6500;
+    lp.Q.value = 0.6;
+    chain = chain.connect(lp);
     const g = ctx.createGain();
-    const peak = 0.3; // about +7 dB over the band
+    const level = 0.24; // about +7 dB over the band
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(peak, t + a);
-    g.gain.setTargetAtTime(peak * 0.9, t + a, 0.1);
+    g.gain.linearRampToValueAtTime(level, t + a); // the bow takes hold
+    g.gain.setTargetAtTime(level * 0.92, t + a, 0.15);
     g.gain.setTargetAtTime(0, t + dur, r / 3);
-    lp.connect(body).connect(g).connect(this.bus);
+    chain.connect(g).connect(this.bus);
+    // Vibrato: none at first, then about +-15 cents at 5.8 Hz
     const lfo = this._track(ctx.createOscillator());
-    lfo.frequency.value = 5.5;
+    lfo.frequency.value = 5.8;
     const depth = ctx.createGain();
     depth.gain.setValueAtTime(0, t);
-    depth.gain.linearRampToValueAtTime(0, t + 0.25);
-    depth.gain.linearRampToValueAtTime(freq * 0.006, t + 0.6);
+    depth.gain.linearRampToValueAtTime(0, t + 0.2);
+    depth.gain.linearRampToValueAtTime(freq * 0.009, t + 0.55);
     lfo.connect(depth);
-    const layer = (type, f, cents, level) => {
+    for (const [cents, mix] of [[0, 0.7], [4, 0.3]]) { // a hair of detune: a living string, not a buzzer
       const osc = this._track(ctx.createOscillator());
-      osc.type = type;
-      osc.frequency.value = f;
+      osc.type = 'sawtooth';
+      osc.frequency.value = freq;
       osc.detune.value = cents;
       depth.connect(osc.frequency);
-      const mix = ctx.createGain();
-      mix.gain.value = level;
-      osc.connect(mix).connect(lp);
+      const m = ctx.createGain();
+      m.gain.value = mix;
+      osc.connect(m).connect(hp);
       osc.start(t);
       osc.stop(stop);
-    };
-    for (const [cents, level] of [[-18, 0.16], [-7, 0.2], [0, 0.24], [7, 0.2], [18, 0.16]]) layer('sawtooth', freq, cents, level);
-    layer('square', freq / 2, 0, 0.22); // an octave down
-    layer('sine', freq, 0, 0.35); // the fundamental, solid
+    }
     lfo.start(t);
     lfo.stop(stop);
+    // Bow noise on the attack
+    if (this.noise) {
+      const src = this._track(ctx.createBufferSource());
+      src.buffer = this.noise;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 3500;
+      bp.Q.value = 0.8;
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(0.05, t);
+      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      src.connect(bp).connect(ng).connect(g);
+      src.start(t);
+      src.stop(t + 0.15);
+    }
   }
 
   _drum(pitch, t) {
