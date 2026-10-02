@@ -386,9 +386,10 @@ function onRefineEvents(msg) {
     // Swap in the refined transcription in one step.
     session.refine = null;
     session.version++;
+    const live = session.notes;
     session.notes = new Map();
     session.byInst.clear();
-    for (const [k, n] of r.notes) addNote(k, n);
+    for (const [k, n] of keepLiveWhereLost(r.notes, live)) addNote(k, n);
     session.selected = null;
     reapplyEdits(); // keep the user's corrections
     roll.refinger(session.byInst); // whole-song fingering now that every note is known
@@ -398,6 +399,40 @@ function onRefineEvents(msg) {
     banner(t('msg.refined'), 'info');
     setTimeout(() => { if ($('bannerText').textContent === t('msg.refined')) banner(''); }, 4000);
   }
+}
+
+/**
+ * The refine pass is conditioned on the instruments heard, which now and then makes the
+ * model go quiet for a chunk (a hole in the notes that wasn't there live). Per chunk and
+ * instrument: where it lost most of what the live pass found, keep the live notes there.
+ */
+function keepLiveWhereLost(refined, live) {
+  const part = (i) => SAME_PART[i] ?? i;
+  const seeks = session.audio.map((seg) => seg.seek);
+  const windowOf = (t) => {
+    let lo = 0, hi = seeks.length - 1, at = -1;
+    while (lo <= hi) { const mid = (lo + hi) >> 1; if (seeks[mid] <= t) { at = mid; lo = mid + 1; } else hi = mid - 1; }
+    return at >= 0 && t < seeks[at] + CHUNK_SEC ? seeks[at] : null;
+  };
+  const count = (notes) => {
+    const c = new Map();
+    for (const n of notes.values()) {
+      const w = windowOf(n.start);
+      if (w == null || n.instrument === 'drums') continue;
+      const k = `${w}|${part(n.instrument)}`;
+      c.set(k, (c.get(k) || 0) + 1);
+    }
+    return c;
+  };
+  const before = count(live), after = count(refined);
+  const lost = new Set();
+  for (const [k, n] of before) if (n >= 6 && (after.get(k) || 0) < n * 0.3) lost.add(k);
+  if (!lost.size) return refined;
+  const key = (n) => `${windowOf(n.start)}|${part(n.instrument)}`;
+  const out = new Map();
+  for (const [k, n] of refined) if (!lost.has(key(n))) out.set(k, n);
+  for (const [k, n] of live) if (lost.has(key(n))) out.set(`kept:${k}`, { ...n, instrument: n.model ?? n.instrument });
+  return out;
 }
 
 function cancelRefine() {
