@@ -10,7 +10,7 @@ const CHORD_LANE = 22;
 const RULER = 16;
 const fmtTime = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 const BLACK_KEYS = new Set([1, 3, 6, 8, 10]);
-export const ZOOM_STEPS = [3, 5, 8, 12, 20, 30, 45, 60]; // seconds visible
+export const ZOOM_STEPS = [1, 1.5, 2, 3, 5, 8, 12, 20, 30, 45, 60]; // seconds visible (close-up steps help fast tab passages)
 export const TAB_MAX_WINDOW = 8; // tablature: zoom out only this far, so fret numbers keep room
 
 const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)');
