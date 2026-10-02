@@ -282,6 +282,7 @@ export class Player {
   _note(n, t, length) {
     const ctx = this.ctx;
     if (n.instrument === 'drums') return this._drum(n.pitch, t);
+    if (n.instrument === 'voice') return this._lead(n, t, length);
     const [type, a, d, s, r, cutoff] = VOICES[FAMILY[n.instrument] ?? 'synth'];
     const dur = Math.max(0.06, length, a + 0.02); // release never before the attack has finished
     const osc = this._track(ctx.createOscillator());
@@ -299,6 +300,52 @@ export class Player {
     osc.connect(lp).connect(g).connect(this.bus);
     osc.start(t);
     osc.stop(t + dur + r * 2);
+  }
+
+  /**
+   * The vocal line as a Eurodance lead, a bit louder than the band so the melody leads:
+   * three detuned saws (supersaw), a filter that opens on each note, delayed vibrato.
+   */
+  _lead(n, t, length) {
+    const ctx = this.ctx;
+    const a = 0.012, r = 0.18;
+    const dur = Math.max(0.08, length, a + 0.02);
+    const freq = 440 * 2 ** ((n.pitch - 69) / 12);
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.Q.value = 4;
+    lp.frequency.setValueAtTime(900, t);
+    lp.frequency.linearRampToValueAtTime(5200, t + 0.03);
+    lp.frequency.setTargetAtTime(2600, t + 0.03, 0.12);
+    const g = ctx.createGain();
+    const peak = 0.42; // about +3-4 dB over the band (which peaks at 0.32)
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(peak, t + a);
+    g.gain.setTargetAtTime(peak * 0.85, t + a, 0.08);
+    g.gain.setTargetAtTime(0, t + dur, r / 3);
+    lp.connect(g).connect(this.bus);
+    // Vibrato that eases in on held notes
+    const lfo = this._track(ctx.createOscillator());
+    lfo.frequency.value = 5.5;
+    const depth = ctx.createGain();
+    depth.gain.setValueAtTime(0, t);
+    depth.gain.linearRampToValueAtTime(0, t + 0.25);
+    depth.gain.linearRampToValueAtTime(freq * 0.006, t + 0.6);
+    lfo.connect(depth);
+    for (const cents of [-12, 0, 12]) {
+      const osc = this._track(ctx.createOscillator());
+      osc.type = 'sawtooth';
+      osc.frequency.value = freq;
+      osc.detune.value = cents;
+      depth.connect(osc.frequency);
+      const mix = ctx.createGain();
+      mix.gain.value = cents ? 0.3 : 0.45;
+      osc.connect(mix).connect(lp);
+      osc.start(t);
+      osc.stop(t + dur + r * 2);
+    }
+    lfo.start(t);
+    lfo.stop(t + dur + r * 2);
   }
 
   _drum(pitch, t) {

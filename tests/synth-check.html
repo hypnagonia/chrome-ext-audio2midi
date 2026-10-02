@@ -1,0 +1,16 @@
+<!doctype html><meta charset="utf-8"><pre id="log"></pre>
+<script type="module">
+import { Player } from '../ui/player.js';
+const rmsOf = async (instrument) => {
+  const ctx = new OfflineAudioContext(1, 48000 * 2, 48000);
+  const p = new Player();
+  p.ctx = ctx; p.bus = ctx.createGain(); p.bus.connect(ctx.destination); p.nodes = new Set();
+  p._note({ instrument, pitch: 67, start: 0, end: 1.5 }, 0.01, 1.5);
+  const buf = await ctx.startRendering();
+  const d = buf.getChannelData(0); let e = 0; for (const x of d) e += x * x;
+  return Math.sqrt(e / d.length);
+};
+const v = await rmsOf('voice'), g = await rmsOf('clean_electric_guitar'), k = await rmsOf('acoustic_piano');
+document.getElementById('log').textContent = `voice ${v.toFixed(3)} guitar ${g.toFixed(3)} piano ${k.toFixed(3)} | voice/guitar ${(20 * Math.log10(v / g)).toFixed(1)} dB, voice/piano ${(20 * Math.log10(v / k)).toFixed(1)} dB`;
+window.testDone = true;
+</script>
