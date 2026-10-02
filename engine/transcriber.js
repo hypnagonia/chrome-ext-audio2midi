@@ -4,7 +4,7 @@
 import { NoteDecoder } from './decoder.js';
 import { MAX_PREFILL } from './gpu.js';
 import { autoLevel } from './level.js';
-import { VOCAB, instrumentConditionRows, tieSectionTokens, forbiddenTokens, tokenId } from './vocab.js';
+import { VOCAB, SAMPLE_RATE, FRAME_RATE, instrumentConditionRows, tieSectionTokens, forbiddenTokens, tokenId, programForInstrument } from './vocab.js';
 
 const VOICE_INDEX_BASE = 1e9; // note indices of the separate voice pass
 const NOTE_ON = new Set(['pitch', 'drum']);
@@ -13,6 +13,21 @@ const NOTE_ON = new Set(['pitch', 'drum']);
 function hasNotes(tokens, from) {
   for (let i = from; i < tokens.length; i++) if (NOTE_ON.has(VOCAB[tokens[i]]?.type)) return true;
   return false;
+}
+
+const VOICE_PROGRAM = programForInstrument('voice');
+// Seconds later where the voice pass listens again after a dropout (first that hears singing wins).
+const VOICE_RETRY_SHIFTS = [0.15, 0.5, 1];
+
+/** Voice note-ons in generated tokens (after the forced prompt). */
+function voiceNotes(tokens, from) {
+  let program = null, n = 0;
+  for (let i = from; i < tokens.length; i++) {
+    const v = VOCAB[tokens[i]];
+    if (v?.type === 'program') program = v.value;
+    else if (v?.type === 'pitch' && program === VOICE_PROGRAM) n++;
+  }
+  return n;
 }
 
 const rms = (x) => {
@@ -33,6 +48,7 @@ export class Transcriber {
   }
 
   reset() {
+    this.lastVoice = 0; // voice notes in the previous chunk (an empty voice pass after singing gets a retry)
     this.decoder = new NoteDecoder();
     this.chunks = 0;
     // The voice pass keeps its own continuity; its note indices never collide with the main pass.
@@ -64,21 +80,13 @@ export class Transcriber {
   /**
    * One model pass over a chunk, continuing `decoder`. The tie prologue (notes held over
    * from the previous chunk) is forced, except on a first chunk where the model writes its
-   * own (notes already sounding when the audio starts). A chunk that has sound but comes back without a single note gets one more try from a
-   * clean start (held notes end at the chunk start), unless we're in a hurry.
+   * own (notes already sounding when the audio starts). A chunk that has sound but comes
+   * back without a single note gets one more try from a clean start (held notes end at the
+   * chunk start), unless we're in a hurry.
    */
   async _pass(decoder, mel, names, first, { loud = false, hurry = false } = {}) {
     const instRows = instrumentConditionRows(names);
-    let prompt = [];
-    if (!first) {
-      // The tie prologue must fit the prefill pass. If an unusual pile of held notes
-      // would overflow it, sustain only what fits; the rest end at the chunk start.
-      const room = MAX_PREFILL - mel.frames - 2 - instRows.length;
-      const keys = decoder.openKeys();
-      let keep = keys.length;
-      prompt = tieSectionTokens(keys);
-      while (prompt.length > room && keep > 0) prompt = tieSectionTokens(keys.slice(0, --keep));
-    }
+    const prompt = first ? [] : this._prologue(decoder, mel, instRows);
     let out = await this.engine.generate({ mel, instRows, prompt });
     if (loud && !hurry && !hasNotes(out.tokens, prompt.length)) {
       const retry = await this.engine.generate({ mel, instRows, prompt: tieSectionTokens([]) });
@@ -88,6 +96,51 @@ export class Transcriber {
     const events = [];
     for (const t of out.tokens) events.push(...decoder.token(t));
     return { events, out };
+  }
+
+  /**
+   * The tie prologue for `decoder`'s held notes. It must fit the prefill pass: if an
+   * unusual pile of held notes would overflow it, sustain only what fits (the rest end at
+   * the chunk start).
+   */
+  _prologue(decoder, mel, instRows) {
+    const room = MAX_PREFILL - mel.frames - 2 - instRows.length;
+    const keys = decoder.openKeys();
+    let keep = keys.length;
+    let prompt = tieSectionTokens(keys);
+    while (prompt.length > room && keep > 0) prompt = tieSectionTokens(keys.slice(0, --keep));
+    return prompt;
+  }
+
+  /**
+   * The voice pass. Whether the model hears the singing in a chunk depends on where the
+   * chunk starts, so when it comes back empty although singing is expected, it listens
+   * again from a little later in the chunk. Returns {events, generated, found}.
+   */
+  async _voicePass(vdec, mel, leveled, seekTime, { hurry, expectVoice }) {
+    const instRows = instrumentConditionRows(['voice']);
+    const first = this.voiceChunks++ === 0;
+    const prompt = first ? [] : this._prologue(vdec, mel, instRows);
+    let out = await this.engine.generate({ mel, instRows, prompt });
+    let generated = out.generated;
+    if (expectVoice && !hurry && !voiceNotes(out.tokens, prompt.length)) {
+      for (const shiftSec of VOICE_RETRY_SHIFTS) {
+        const shift = Math.round(shiftSec * SAMPLE_RATE);
+        const moved = new Float32Array(leveled.length);
+        moved.set(leveled.subarray(shift));
+        const retry = await this.engine.generate({ mel: this.mel.compute(moved), instRows, prompt: tieSectionTokens([]) });
+        generated += retry.generated;
+        if (!voiceNotes(retry.tokens, 1)) continue;
+        out = retry;
+        // Its times count from the shifted start (held notes end at the chunk start).
+        vdec.startTick = Math.round((seekTime + shiftSec) * FRAME_RATE);
+        vdec.tick = vdec.startTick;
+        break;
+      }
+    }
+    const events = [];
+    for (const t of out.tokens) events.push(...vdec.token(t));
+    return { events, generated, found: events.some((e) => e.type === 'start' && e.instrument === 'voice') };
   }
 
   /**
@@ -131,7 +184,8 @@ export class Transcriber {
     const mainEvents = decoder.boundary(seekTime, nextSeekTime);
     const voiceEvents = vdec.boundary(seekTime, nextSeekTime);
     const first = this.chunks++ === 0;
-    const result = () => ({ events: [...this._main(mainEvents, voiceOn), ...this._onlyVoice(voiceEvents)] });
+    let keepMainVoice = false;
+    const result = () => ({ events: [...this._main(mainEvents, voiceOn && !keepMainVoice), ...this._onlyVoice(voiceEvents)] });
     if (!samples) return { ...result(), stats: null };
     const t0 = performance.now();
     let generated = 0, eos = false, tokens = [];
@@ -145,9 +199,15 @@ export class Transcriber {
       mainEvents.push(...main.events);
       ({ generated, eos, tokens } = { generated: main.out.generated, eos: main.out.eos, tokens: main.out.tokens });
       if (voiceOn) {
-        const voice = await this._pass(vdec, mel, ['voice'], this.voiceChunks++ === 0, { hurry: true });
+        // Vocals were there a moment ago, or the main pass hears them now: an empty voice
+        // pass is the model dropping out (it depends on where the chunk starts), so retry.
+        const expectVoice = (this.lastVoice ?? 0) >= 3 || mainEvents.some((e) => e.type === 'start' && e.instrument === 'voice');
+        const voice = await this._voicePass(vdec, mel, leveled, seekTime, { hurry, expectVoice });
         voiceEvents.push(...voice.events);
-        generated += voice.out.generated;
+        this.lastVoice = voice.events.filter((e) => e.type === 'start').length;
+        generated += voice.generated;
+        // Still nothing, but the main pass heard singing: keep its voice notes for this chunk.
+        if (!voice.found && expectVoice) keepMainVoice = true;
       }
     } catch (error) {
       return { ...result(), stats: null, failed: true, error };

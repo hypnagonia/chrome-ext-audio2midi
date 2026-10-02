@@ -550,3 +550,8 @@ select:focus { border-color: var(--ink); outline: 0; }
   -webkit-mask: url(icons/jenyadoesapps.png) center / contain no-repeat;
   mask: url(icons/jenyadoesapps.png) center / contain no-repeat;
 }
+
+/* Work in progress (improving, filling in): the message breathes */
+.banner.busy span { animation: breathe 1.6s ease-in-out infinite; }
+@keyframes breathe { 50% { opacity: 0.4; } }
+@media (prefers-reduced-motion: reduce) { .banner.busy span { animation: none; } }

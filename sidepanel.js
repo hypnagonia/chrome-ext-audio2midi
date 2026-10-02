@@ -82,7 +82,8 @@ const errorText = (d) => (ERROR_KEYS[d.code] ? t(ERROR_KEYS[d.code], { status: d
 function banner(text, kind = 'error') {
   $('banner').hidden = !text;
   $('bannerText').textContent = text || '';
-  $('banner').className = `banner ${kind === 'info' ? 'info' : ''}`;
+  // 'busy': work in progress (an info banner that breathes)
+  $('banner').className = `banner ${kind === 'info' || kind === 'busy' ? 'info' : ''} ${kind === 'busy' ? 'busy' : ''}`;
 }
 $('bannerClose').addEventListener('click', () => banner(''));
 
@@ -346,7 +347,7 @@ async function refineRun() {
   }
   const r = { parts: new Set(), runs: runs.length, chunks: segs.length, done: 0, notes: new Map(), failed: false };
   session.refine = r;
-  banner(t('msg.refining', { pct: 0 }), 'info');
+  banner(t('msg.refining', { pct: 0 }), 'busy');
   for (const run of runs) {
     const part = ++session.part;
     r.parts.add(part);
@@ -374,7 +375,7 @@ function onRefineEvents(msg) {
   }
   if (msg.seek != null) {
     r.done++;
-    banner(t('msg.refining', { pct: Math.round((100 * r.done) / r.chunks) }), 'info');
+    banner(t('msg.refining', { pct: Math.round((100 * r.done) / r.chunks) }), 'busy');
   }
   if (msg.final && --r.runs === 0 && r.failed) {
     // Something went wrong on the GPU: keep the live notes rather than a partial result.
@@ -942,7 +943,7 @@ async function backfill(part) {
     worker.postMessage({ type: 'backfill', part, key: `${seek}`, samples, seek, next: seek + CHUNK_SEC }, [samples.buffer]);
   }
   if (session.backfilling) {
-    banner(t('msg.backfill', { n: session.backfilling }), 'info');
+    banner(t('msg.backfill', { n: session.backfilling }), 'busy');
     session.dropped = 0;
   }
 }

@@ -1,0 +1,38 @@
+<!doctype html><meta charset="utf-8"><pre id="log"></pre>
+<script type="module">
+// Vocals vs chunk phase: the same audio, chunked from different start offsets.
+// ?src=fixtures/vocal.mp3&offsets=0,0.1,0.5,2.5&weights=fixtures/small-fp16.safetensors
+import { parseSafetensors } from '../engine/safetensors.js';
+import { MelFrontend } from '../engine/mel.js';
+import { Engine } from '../engine/gpu.js';
+import { Transcriber } from '../engine/transcriber.js';
+import { SAMPLE_RATE, SEGMENT_SAMPLES } from '../engine/vocab.js';
+const q = new URLSearchParams(location.search);
+const log = (s) => { document.getElementById('log').textContent += s + '\n'; };
+const [wbuf, abuf] = await Promise.all([fetch(q.get('weights') || 'fixtures/small-fp16.safetensors'), fetch(q.get('src') || 'fixtures/vocal.mp3')].map((p) => p.then((r) => r.arrayBuffer())));
+const st = parseSafetensors(wbuf);
+let layers = 0; while (st.has(`transformer.layers.${layers}.norm1.weight`)) layers++;
+const dim = st.shape('emb.weight')[1];
+const engine = await Engine.create(st, { dim, num_heads: dim / 64, num_layers: layers, card: st.shape('linear.weight')[0] }, { f16: true });
+const P = 'condition_provider.conditioners.self_wav.mel_spec_transform.';
+const mel = new MelFrontend(st.getF32(P + 'spectrogram.window'), st.getF32(P + 'mel_scale.fb'));
+const dec = await new AudioContext().decodeAudioData(abuf);
+const off = new OfflineAudioContext(1, Math.ceil(dec.duration * SAMPLE_RATE), SAMPLE_RATE);
+const src = off.createBufferSource(); src.buffer = dec; src.connect(off.destination); src.start();
+const audio = (await off.startRendering()).getChannelData(0);
+for (const o of (q.get('offsets') || '0,0.1,0.5,2.5').split(',').map(Number)) {
+  const tr = new Transcriber(engine, mel, { autoLevel: true });
+  tr.setInstruments(null);
+  tr.setHint(q.get('hint') === 'none' ? null : ['voice']);
+  const from = Math.round(o * SAMPLE_RATE);
+  const per = [];
+  for (let s = from, i = 0; s + SEGMENT_SAMPLES / 2 < audio.length; s += SEGMENT_SAMPLES, i++) {
+    const chunk = new Float32Array(SEGMENT_SAMPLES); chunk.set(audio.subarray(s, s + SEGMENT_SAMPLES));
+    const seek = s / SAMPLE_RATE;
+    const r = await tr.processChunk(chunk, seek, seek + SEGMENT_SAMPLES / SAMPLE_RATE);
+    per.push(r.events.filter((e) => e.type === 'start' && e.instrument === 'voice').length);
+  }
+  log(`offset ${o}s: voice ${per.reduce((a, b) => a + b, 0)} [${per.join(' ')}]`);
+}
+window.testDone = true;
+</script>
