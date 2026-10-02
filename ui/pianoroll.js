@@ -8,6 +8,7 @@ import { Fingering, tuningFor, stringNames } from '../music/tab.js';
 const DRUM_LANE = 18;
 const CHORD_LANE = 22;
 const RULER = 16;
+const TAB_CONTROLS = 44; // room under the staffs for the view/zoom controls
 const fmtTime = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 const BLACK_KEYS = new Set([1, 3, 6, 8, 10]);
 export const ZOOM_STEPS = [1, 1.5, 2, 3, 5, 8, 12, 20, 30, 45, 60]; // seconds visible (close-up steps help fast tab passages)
@@ -122,6 +123,8 @@ export class PianoRoll {
   _drawTab(s, { t0, t1, x, top, bottom, w, v, hits }) {
     const { ctx } = this;
     const insts = (s.instruments || []).filter((i) => i !== 'drums' && s.audible(i) && s.byInst?.get(i)?.length);
+    // Keep the last staff clear of the floating view/zoom controls, so its notes stay clickable.
+    bottom -= TAB_CONTROLS;
     const areaH = bottom - top;
     this.vOverflow = false;
     if (!insts.length) return;
@@ -180,10 +183,13 @@ export class PianoRoll {
       }
       // Pass 1: ring lines and ticks. Pass 2: numbers on top, so nothing covers a digit.
       for (const it of items) {
+        const len = Math.max(2, x(it.end) - it.nx);
         ctx.globalAlpha = 0.45;
         ctx.fillStyle = color;
-        ctx.fillRect(it.nx, it.ny - 1, Math.max(2, x(it.end) - it.nx), 3);
+        ctx.fillRect(it.nx, it.ny - 1, len, 3);
         ctx.globalAlpha = 1;
+        // The ring line is clickable too (the number, pushed later, wins where they overlap).
+        if (visibleY(it.ny - 5, it.ny + 5)) hits.push({ x: it.nx, y: it.ny - 5, w: len, h: 10, note: it.n });
         if (it.tick) {
           ctx.fillStyle = v['--ink'];
           ctx.fillRect(it.nx, it.ny - 3, 1.5, 6);
@@ -271,13 +277,24 @@ export class PianoRoll {
     return Math.min(now, done + this.window * 0.12);
   }
 
-  /** The audible note under a canvas point (CSS px), or null. */
+  /**
+   * The audible note under a canvas point (CSS px), or null. A near miss counts: the
+   * closest note within a few pixels (more in tab view, where numbers are small).
+   */
   noteAt(px, py) {
     for (let i = this.hits.length - 1; i >= 0; i--) {
       const r = this.hits[i];
       if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) return r.note;
     }
-    return null;
+    const reach = this.mode === 'tab' ? 10 : 5;
+    let best = null, bestD = reach;
+    for (const r of this.hits) {
+      const dx = Math.max(r.x - px, 0, px - (r.x + r.w));
+      const dy = Math.max(r.y - py, 0, py - (r.y + r.h));
+      const d = Math.hypot(dx, dy);
+      if (d < bestD) { bestD = d; best = r.note; }
+    }
+    return best;
   }
 
   _resize() {

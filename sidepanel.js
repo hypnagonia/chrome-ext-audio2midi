@@ -47,6 +47,7 @@ const LINE_INSTRUMENTS = new Set([
 const DEFAULTS = {
   accepted: false, token: '', model: 'small', f32: false, instruments: [], zoom: 12, lang: 'auto', naming: 'auto',
   vocals: false, // tell the model the song has singing (conditioning hint)
+  noteHintSeen: false, // the note tooltip's how-to line shows until a note is first clicked
   view: 'roll', // canvas: 'roll' (piano roll) or 'tab' (tablature)
   refine: true, // re-transcribe the whole recording after stop
 };
@@ -230,6 +231,7 @@ function selectNote(n) {
   session.selected = n;
   roll.dirty = true;
   if (n) player.preview(n);
+  if (n && !settings.noteHintSeen) settingsStore.set({ noteHintSeen: true });
 }
 
 function afterEdit() {
@@ -546,10 +548,15 @@ function renderPanel() {
 const rowCache = new Map(); // instrument -> <li>
 
 /** Channel order: the user's drag-and-drop order, then new parts by first appearance, drums last. */
+// Channel and staff order: voice, guitar, keyboards, everything else, bass, drums
+// (then by first note). Dragging a channel overrides it.
+const KEYBOARDS = new Set(['acoustic_piano', 'electric_piano', 'organ', 'synth_lead', 'synth_pad', 'chromatic_percussion']);
+const rank = (i) => (i === 'voice' ? 0 : i === 'clean_electric_guitar' ? 1 : KEYBOARDS.has(i) ? 2
+  : i === 'electric_bass' ? 4 : i === 'drums' ? 5 : 3);
+
 function orderedInstruments() {
   const first = (i) => session.byInst.get(i)[0]?.start ?? Infinity;
-  const auto = [...session.byInst.keys()]
-    .sort((a, b) => (a === 'drums') - (b === 'drums') || first(a) - first(b));
+  const auto = [...session.byInst.keys()].sort((a, b) => rank(a) - rank(b) || first(a) - first(b));
   const placed = session.order.filter((i) => session.byInst.has(i));
   return [...placed, ...auto.filter((i) => !placed.includes(i))];
 }
@@ -1177,11 +1184,14 @@ function updateTip() {
   const e = { offsetX: pointer.x, offsetY: pointer.y };
   const flats = session.key?.useFlats ?? false;
   const name = n.instrument === 'drums' ? drumName(n.pitch) : noteName(n.pitch, flats);
-  tip.innerHTML = `<strong>${esc(name)}</strong><span>${esc(instrumentLabel(n.instrument))}, ${fmtTime(n.start)}</span><em>${esc(t(roll.mode === 'tab' ? 'note.hintTab' : 'note.hint'))}</em>`;
+  // The how-to line only until the first click on a note: then the tip stays small.
+  const hint = settings.noteHintSeen ? '' : `<em>${esc(t(roll.mode === 'tab' ? 'note.hintTab' : 'note.hint'))}</em>`;
+  tip.innerHTML = `<strong>${esc(name)}</strong><span>${esc(instrumentLabel(n.instrument))}, ${fmtTime(n.start)}</span>${hint}`;
   tip.hidden = false;
   const r = $('roll').getBoundingClientRect();
   const left = Math.min(e.offsetX + 12, r.width - tip.offsetWidth - 4);
-  const top = e.offsetY + 16 + tip.offsetHeight > r.height ? e.offsetY - tip.offsetHeight - 8 : e.offsetY + 16;
+  // Above the pointer, so it never covers the notes below that you may aim for next.
+  const top = e.offsetY - tip.offsetHeight - 12 >= 4 ? e.offsetY - tip.offsetHeight - 12 : e.offsetY + 16;
   tip.style.left = `${Math.max(4, left)}px`;
   tip.style.top = `${Math.max(4, top)}px`;
 }
@@ -1207,7 +1217,7 @@ $('roll').addEventListener('pointerdown', (e) => {
 });
 $('roll').addEventListener('pointermove', (e) => {
   if (!drag) return;
-  if (!drag.moved && Math.abs(e.clientX - drag.x) < 4) return;
+  if (!drag.moved && Math.abs(e.clientX - drag.x) < (drag.hit ? 10 : 4)) return; // a click on a note may wobble a bit
   if (!drag.moved) {
     drag.moved = true;
     player.pause();
@@ -1361,6 +1371,7 @@ if (!isExtension) {
   window.__byearSel = () => session.selected && { pitch: session.selected.pitch, instrument: session.selected.instrument };
   window.__byearState = () => ({ dropped: session.dropped, droppedSeeks: session.droppedSeeks.map((d) => d.seek), stats: session.statsLog, refine: !!session.refine, audio: session.audio.length, backfilling: session.backfilling, capture: !!capture, setting: settings.refine, reviewing: reviewing() });
   window.__byearPos = () => session.selected && roll.fingering.get(session.selected, session.selected.instrument);
+  window.__byearRoll = roll;
   window.__byear = () => ({
     now: session.now, done: session.done, viewEnd: session.viewEnd, t0: roll.t0, mode: roll.mode, window: roll.window, notes: session.notes.size,
     first: [...session.notes.values()].sort((a, b) => a.start - b.start).slice(0, 6).map((n) => [+n.start.toFixed(2), n.pitch, n.instrument]),

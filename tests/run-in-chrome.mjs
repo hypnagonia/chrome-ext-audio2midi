@@ -42,6 +42,13 @@ await send('Page.navigate', { url });
 if (process.env.SHOT) {
   // Screenshot mode: wait, capture, print the page text.
   await sleep(+(process.env.AFTER || 20) * 1000);
+  if (process.env.CLICK) {
+    // A real (trusted) mouse click, for APIs that need a user gesture.
+    const r = await send('Runtime.evaluate', { expression: `JSON.stringify((({x, y, width, height}) => ({x: x + width / 2, y: y + height / 2}))(document.querySelector(${JSON.stringify(process.env.CLICK)}).getBoundingClientRect()))`, returnByValue: true });
+    const { x, y } = JSON.parse(r.result.result.value);
+    for (const type of ['mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 });
+    await sleep(+(process.env.CLICK_WAIT || 2) * 1000);
+  }
   if (process.env.EVAL) {
     const r = await send('Runtime.evaluate', { expression: process.env.EVAL, awaitPromise: true, returnByValue: true });
     console.log('EVAL ->', JSON.stringify(r.result?.result?.value ?? r.result?.exceptionDetails?.exception?.description));
