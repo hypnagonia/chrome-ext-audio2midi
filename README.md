@@ -1,5 +1,7 @@
 # byEar – Chord Finder & Audio to MIDI
 
+[![Install from Chrome Web Store](https://img.shields.io/badge/Install%20from%20Chrome%20Web%20Store-1a73e8?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/eccjegggfhojkcnlogfghlfgpmajekae)
+
 **Hear a song, see its chords.** byEar is a Chrome extension that listens to whatever is playing in a tab (YouTube, Spotify, SoundCloud, a lesson video) and shows you, live, what every instrument is playing: the chords, the notes and the key. When the song ends, play back the original or the MIDI version, and export it as a `.mid` file for your DAW.
 
 <p align="center">
@@ -18,6 +20,8 @@
 - **18 languages,** with note names the way musicians say them: C D E, Do Ré Mi, or C D E … H.
 
 ## Install
+
+Install from the [Chrome Web Store](https://chromewebstore.google.com/detail/eccjegggfhojkcnlogfghlfgpmajekae). To run from source instead:
 
 1. Download or clone this repository.
 2. Open `chrome://extensions`, turn on **Developer mode** and click **Load unpacked**. Choose the folder.
